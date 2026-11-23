@@ -399,3 +399,66 @@ func TestDMCrypto(t *testing.T) {
 		t.Fatal("the sender could be swapped")
 	}
 }
+
+// Copies of a message race each other through the mesh. If the first copy
+// to reach a laptop came the long way round with no hops left, a later copy
+// with hops to spare must still be passed on, or everyone behind that
+// laptop misses the message. It must not be shown twice, though.
+func TestMeshBetterCopyTravelsFurther(t *testing.T) {
+	h, err := StartHub(HubOpts{Mesh: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close("")
+	m, err := NewMesh(h, (&simNet{mtu: 64}).radio(), testMeshCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.me = "aaaaaaaaaaaa" // the loop isn't running: handle is called directly
+	a := &mlink{id: 1, mtu: 64, hi: make(chan []byte, 8), lo: make(chan []byte, 8)}
+	b := &mlink{id: 2, mtu: 64, hi: make(chan []byte, 8), lo: make(chan []byte, 8)}
+	m.links[1], m.links[2] = a, b
+	queued := func() int { return len(a.hi) + len(a.lo) + len(b.hi) + len(b.lo) }
+
+	long := pkt{T: "msg", MID: "0123abcd", TTL: 1, From: "bbbbbbbbbbbb", Nick: "far", Room: general, Text: "hi all"}
+	m.handle(1, &long)
+	if queued() != 0 {
+		t.Fatal("a copy with no hops left was passed on")
+	}
+	short := long
+	short.TTL = 5
+	m.handle(2, &short)
+	if len(a.hi) != 1 || queued() != 1 {
+		t.Fatalf("the copy with hops to spare wasn't passed on (queued %d)", queued())
+	}
+	if got, err := decodePkt(<-a.hi); err != nil || got.MID != long.MID || got.TTL != 4 {
+		t.Fatalf("passed on %+v, %v", got, err)
+	}
+	again := short
+	m.handle(1, &again)
+	if queued() != 0 {
+		t.Fatal("a copy that is no better was passed on again")
+	}
+
+	h.mu.Lock()
+	shown := 0
+	for _, msg := range h.rooms[general].hist {
+		if msg.Text == "hi all" {
+			shown++
+		}
+	}
+	h.mu.Unlock()
+	if shown != 1 {
+		t.Fatalf("the message was shown %d times", shown)
+	}
+
+	// A DM for this laptop stops here, however many hops are left.
+	dm := pkt{T: "dm", MID: "4567cdef", TTL: 2, From: "bbbbbbbbbbbb", To: m.me, Box: "x", Pub: "y"}
+	m.handle(1, &dm)
+	dm2 := dm
+	dm2.TTL = 6
+	m.handle(2, &dm2)
+	if queued() != 0 {
+		t.Fatal("a DM addressed here was passed on")
+	}
+}

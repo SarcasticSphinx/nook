@@ -48,7 +48,7 @@ type Mesh struct {
 	key           *ecdh.PrivateKey
 	peers         map[string]*peer
 	links         map[int64]*mlink
-	seen          map[string]time.Time
+	seen          map[string]seenMsg
 	recent        []stored
 	asm           assembler
 	annMID        string
@@ -127,7 +127,7 @@ func NewMesh(h *Hub, r radio, cfg meshCfg) (*Mesh, error) {
 		ev: make(chan meshEv, 8192), quit: make(chan struct{}), done: make(chan struct{}),
 		key: key, pub: pub,
 		peers: map[string]*peer{}, links: map[int64]*mlink{},
-		seen: map[string]time.Time{}, syncedAt: map[int64]time.Time{},
+		seen: map[string]seenMsg{}, syncedAt: map[int64]time.Time{},
 		annEvery: cfg.Announce + time.Duration(rand.Int63n(int64(cfg.Announce)/4+1)),
 		stream:   uint16(rand.Intn(1 << 16)),
 		seq:      uint32(rand.Intn(1 << 16)),
@@ -308,7 +308,15 @@ func (m *Mesh) forward(from int64, p *pkt) {
 	}
 }
 
-// dup records a message id and reports whether it was seen before.
+// seenMsg is what the mesh remembers about a packet it has handled.
+type seenMsg struct {
+	at    time.Time
+	ttl   int  // the most hops left that any copy arrived with
+	relay bool // it was fine to pass on
+}
+
+// dup records a packet this laptop sends itself, and reports whether it was
+// seen before.
 func (m *Mesh) dup(mid string, now time.Time) bool {
 	if mid == "" || len(mid) > 64 {
 		return true
@@ -316,8 +324,33 @@ func (m *Mesh) dup(mid string, now time.Time) bool {
 	if _, ok := m.seen[mid]; ok {
 		return true
 	}
-	m.seen[mid] = now
+	m.seen[mid] = seenMsg{at: now, ttl: 1 << 30} // copies coming back never beat ours
 	return false
+}
+
+// see records a packet that arrived. first: never seen before. better: seen,
+// but this copy has more hops left than any before it. Copies race each
+// other, and the first one may have come the long way round with too few
+// hops left to reach everyone behind this laptop; a better copy can.
+func (m *Mesh) see(p *pkt, now time.Time) (first, better bool) {
+	if p.MID == "" || len(p.MID) > 64 {
+		return false, false
+	}
+	ttl := p.TTL
+	if p.Hist {
+		ttl = 0 // catch-up copies are never passed on
+	}
+	s, ok := m.seen[p.MID]
+	if !ok {
+		m.seen[p.MID] = seenMsg{at: now, ttl: ttl}
+		return true, false
+	}
+	if ttl > s.ttl {
+		s.ttl = ttl
+		m.seen[p.MID] = s
+		return false, true
+	}
+	return false, false
 }
 
 func validNode(id string) bool {
@@ -371,7 +404,20 @@ func (m *Mesh) handle(from int64, p *pkt) {
 		}
 		return
 	}
-	if !validNode(p.From) || p.From == m.me || m.dup(p.MID, now) {
+	if !validNode(p.From) || p.From == m.me {
+		return
+	}
+	if first, better := m.see(p, now); !first {
+		// Already handled. A copy with more hops left still goes on, so
+		// it reaches the laptops the first copy couldn't. (Only if the
+		// first copy was fine to pass on: that's where it was checked.)
+		if s := m.seen[p.MID]; better && s.relay && p.T != "fq" {
+			if p.T == "fo" && len(p.FID) == 16 {
+				m.xfer.init()
+				m.xfer.toward[p.FID] = route{from, now} // fewer hops back to the sender
+			}
+			m.forward(from, p)
+		}
 		return
 	}
 	switch p.T {
@@ -419,6 +465,10 @@ func (m *Mesh) handle(from int64, p *pkt) {
 		}
 	default:
 		return
+	}
+	if s, ok := m.seen[p.MID]; ok {
+		s.relay = true
+		m.seen[p.MID] = s
 	}
 	m.forward(from, p)
 }
@@ -534,8 +584,8 @@ func (m *Mesh) tick(now time.Time) {
 	}
 	m.fileTick(now)
 	if now.Sub(m.lastPrune) > 30*time.Second {
-		for mid, t := range m.seen {
-			if now.Sub(t) > 15*time.Minute {
+		for mid, s := range m.seen {
+			if now.Sub(s.at) > 15*time.Minute {
 				delete(m.seen, mid)
 			}
 		}

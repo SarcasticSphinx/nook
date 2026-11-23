@@ -49,8 +49,9 @@ The installer copies the app to `~/.local/share/nook` and links it as
 `~/.local/bin/nook` (Windows: `%LOCALAPPDATA%\nook`, added to your PATH for
 your account only). Nothing else is installed. Installing from a nook folder
 also copies the builds for every other computer, so when you host in Wi-Fi
-mode, everyone can install from you. To remove it: `sh install.sh uninstall`
-(Windows: `install.cmd uninstall`).
+mode, everyone can install from you. To remove it:
+`curl -fsSL https://github.com/SarcasticSphinx/nook/releases/latest/download/install.sh | sh -s uninstall`
+(from a nook folder: `sh install.sh uninstall`; Windows: `install.cmd uninstall`).
 
 ## Quick start
 

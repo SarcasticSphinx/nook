@@ -6,6 +6,6 @@ setlocal
 if exist "%~dp0install.ps1" (
   powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" %*
 ) else (
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object Net.WebClient).DownloadString('https://github.com/SarcasticSphinx/nook/releases/latest/download/install.ps1'))"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor 3072; & ([scriptblock]::Create((New-Object Net.WebClient).DownloadString('https://github.com/SarcasticSphinx/nook/releases/latest/download/install.ps1'))) %*"
 )
 echo %cmdcmdline% | find /i "/c" >nul && pause
