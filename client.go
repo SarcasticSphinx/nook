@@ -59,6 +59,11 @@ type ClientOpts struct {
 	Key   string
 	Nick  string
 	Token string
+
+	// Bluetooth mode: what /info says, and a few words for the prompt
+	// when something needs attention ("no one nearby yet").
+	Status func() string
+	Note   func() string
 }
 
 type endResult struct {
@@ -468,7 +473,9 @@ func (c *Client) handle(ev *Ev) (res endResult) {
 		c.fixTargetLocked()
 		c.state = stOnline
 		if newHub {
-			if c.hub != nil && c.url == localURL(c.hub.Port()) {
+			if c.o.Status != nil {
+				c.sysLocked(c.o.Status() + " · /help")
+			} else if c.hub != nil && c.url == localURL(c.hub.Port()) {
 				where := "no network yet — connect to the Wi-Fi"
 				if len(c.addrs) > 0 {
 					where = strings.Join(c.addrs, "  ")
@@ -693,6 +700,7 @@ type View struct {
 	Label  string
 	State  int
 	Nicks  map[string]string
+	Note   string
 }
 
 func (v *View) label(key string) string {
@@ -722,8 +730,14 @@ func (c *Client) View(n int) View {
 	for id, u := range c.users {
 		v.Nicks[id] = u.Nick
 	}
+	if c.o.Note != nil {
+		v.Note = c.o.Note()
+	}
 	return v
 }
+
+// Poke asks the screen to redraw (e.g. Bluetooth status changed).
+func (c *Client) Poke() { c.changed() }
 
 // ---- commands ----
 
@@ -1034,6 +1048,10 @@ func (c *Client) listRooms() {
 }
 
 func (c *Client) info() {
+	if c.o.Status != nil {
+		c.Sys(c.o.Status())
+		return
+	}
 	c.mu.Lock()
 	base, addrs, hosting, state := c.url, c.addrs, c.hub != nil, c.state
 	c.mu.Unlock()

@@ -31,18 +31,21 @@ var getHTML string
 
 var getTmpl = template.Must(template.New("get").Parse(getHTML))
 
-const usage = `nook: chat with the people around you over the same Wi-Fi. No internet needed.
+const usage = `nook: chat with the people around you. No internet or Wi-Fi needed.
 
-  nook                 join the room on this network, or start one
-  nook host            start the room on this computer (keep it open)
-  nook serve           host only, without the chat screen
-  nook join ADDRESS    join a host directly, e.g. nook join 192.168.1.20
-  nook scan            search harder when automatic finding is blocked
+  nook                 chat over Bluetooth with the laptops nearby (default)
+  nook check           test Bluetooth on this laptop
+  nook wifi            chat over a shared Wi-Fi network instead: faster, and
+                       people can join from a web browser
+  nook host            Wi-Fi: start the room on this computer (keep it open)
+  nook serve           Wi-Fi: host only, without the chat screen
+  nook join ADDRESS    Wi-Fi: join a host directly, e.g. nook join 192.168.1.20
+  nook scan            Wi-Fi: search harder when automatic finding is blocked
 
 options
   -n, --name NAME      your name (default: your login name)
-  -k, --key WORD       room password: only people who have it can join
-  -p, --port N         network port (default 4747)
+  -k, --key WORD       Wi-Fi room password: only people who have it can join
+  -p, --port N         Wi-Fi network port (default 4747)
       --plain          simple line mode instead of the full screen
       --dim            start with faint text
       --skin log       make messages look like log output
@@ -61,7 +64,7 @@ install it once, then just type nook:
   from a running host    curl -fsSL http://HOST:4747/install.sh | sh
                          irm http://HOST:4747/install.ps1 | iex   (Windows PowerShell)
 
-no app? open the address from /info in any browser on the same Wi-Fi.
+no app? in Wi-Fi mode, open the address from /info in any browser.
 `
 
 type args struct {
@@ -69,10 +72,11 @@ type args struct {
 	name, key, skin, id string
 	port                int
 	plain, dim, wipe    bool
+	wifi                bool
 }
 
 func parseArgs(in []string) (args, error) {
-	a := args{cmd: "auto", port: defaultPort, skin: "plain"}
+	a := args{cmd: "bt", port: defaultPort, skin: "plain"}
 	var pos []string
 	for i := 0; i < len(in); i++ {
 		s := in[i]
@@ -120,6 +124,8 @@ func parseArgs(in []string) (args, error) {
 			a.dim = true
 		case "wipe":
 			a.wipe = true
+		case "wifi", "lan":
+			a.wifi = true
 		case "h", "help":
 			a.cmd = "help"
 		case "v", "version":
@@ -131,12 +137,19 @@ func parseArgs(in []string) (args, error) {
 			return a, err
 		}
 	}
+	if a.wifi && a.cmd == "bt" {
+		a.cmd = "wifi"
+	}
 	if a.cmd == "help" || a.cmd == "version" || len(pos) == 0 {
 		return a, nil
 	}
 	switch pos[0] {
-	case "host", "serve", "scan", "help", "version":
+	case "host", "serve", "scan", "help", "version", "check", "wifi":
 		a.cmd = pos[0]
+	case "bt", "bluetooth":
+		a.cmd = "bt"
+	case "lan":
+		a.cmd = "wifi"
 	case "join":
 		if len(pos) < 2 {
 			return a, errors.New("join needs an address, e.g. nook join 192.168.1.20")
@@ -210,9 +223,26 @@ func main() {
 		serve(a)
 		return
 	}
+	if a.cmd == "bt" || a.cmd == "check" {
+		if code, ok := ownBluetooth(); ok {
+			os.Exit(code)
+		}
+	}
+	if a.cmd == "check" {
+		btCheck()
+		return
+	}
 	name := a.name
 	if name == "" {
 		name = defaultName(a.id)
+	}
+	ui := uiOpts{Skin: a.skin, Ghost: a.dim, Wipe: a.wipe}
+	noBluetooth := false
+	if a.cmd == "bt" {
+		if runBluetooth(a, name, ui) {
+			return
+		}
+		noBluetooth = true // this build has none: use Wi-Fi mode
 	}
 	co := ClientOpts{Mode: modeAuto, Port: a.port, Key: a.key, Nick: name, Token: deviceToken(a.id)}
 	switch a.cmd {
@@ -236,8 +266,15 @@ func main() {
 		fmt.Fprintln(os.Stderr, "found", co.URL)
 	}
 	c := NewClient(co)
-	ui := uiOpts{Skin: a.skin, Ghost: a.dim, Wipe: a.wipe}
-	if a.plain || !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
+	if noBluetooth {
+		c.Sys("this copy of nook has no Bluetooth, so it's using Wi-Fi mode")
+	}
+	runUI(c, ui, a.plain)
+}
+
+// runUI shows the chat full screen, or as plain lines where that can't work.
+func runUI(c *Client, ui uiOpts, plain bool) {
+	if plain || !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
 		runPlain(c, ui)
 		return
 	}
@@ -266,7 +303,7 @@ func serve(a args) {
 		u := urls[0]
 		fmt.Printf("  install:  curl -fsSL %s/install.sh | sh     (Mac, Linux)\n", u)
 		fmt.Printf("            irm %s/install.ps1 | iex         (Windows PowerShell)\n", u)
-		fmt.Printf("            all options: %s/get\n", u)
+		fmt.Printf("            then: nook wifi      all options: %s/get\n", u)
 	}
 	if a.key != "" {
 		fmt.Println("  locked: people need --key (or type the key in the browser)")

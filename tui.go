@@ -486,6 +486,9 @@ func (u *tui) prompt(v *View) string {
 	case stOffline:
 		p = "(offline) " + p
 	}
+	if v.Note != "" {
+		p = "(" + v.Note + ") " + p
+	}
 	if u.scroll > 0 {
 		p = "^ " + p
 	}

@@ -46,6 +46,21 @@ type HubOpts struct {
 	Prio    int // 1 = `nook host`, 0 = started automatically
 	Key     string
 	Elect   bool // hand over to a better hub if one shows up
+
+	// Mesh makes a private hub for Bluetooth mode: it listens on this
+	// computer only, holds people who live on other laptops (RemoteUser,
+	// RemoteMsg) and reports what the person here does on LocalEvents.
+	Mesh bool
+}
+
+// LocalEvent is something the person at this computer did that the mesh has
+// to tell everyone else about.
+type LocalEvent struct {
+	Kind  string // "me" (online, renamed or changed rooms) or "say"
+	ID    string
+	Nick  string
+	Rooms []string
+	Msg   Msg
 }
 
 type Hub struct {
@@ -69,10 +84,13 @@ type Hub struct {
 	done     chan struct{}
 	once     sync.Once
 	disc     func(int, time.Duration) []HubInfo
+	local    chan LocalEvent
 }
 
 type user struct {
 	id, nick, tok string
+	want          string // the name a remote person asked for
+	remote        bool   // lives on another laptop (Bluetooth mode)
 	on            bool
 	rooms         map[string]bool
 	sess          map[*session]bool
@@ -145,7 +163,14 @@ func StartHub(o HubOpts) (*Hub, error) {
 		done:     make(chan struct{}),
 		disc:     discoverFn,
 	}
-	ln, err := listenTCP(o.Port)
+	var ln net.Listener
+	var err error
+	if o.Mesh {
+		h.local = make(chan LocalEvent, 1024)
+		ln, err = net.Listen("tcp", "127.0.0.1:0") // nobody else can reach it
+	} else {
+		ln, err = listenTCP(o.Port)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +214,9 @@ func (h *Hub) Done() <-chan struct{} { return h.done }
 
 // URLs are the addresses other people on the network can use to reach us.
 func (h *Hub) URLs() []string {
+	if h.opts.Mesh {
+		return nil
+	}
 	var out []string
 	for _, ip := range lanIPs() {
 		out = append(out, "http://"+net.JoinHostPort(ip.String(), strconv.Itoa(h.port)))
@@ -506,6 +534,7 @@ func (h *Hub) join(tok, nick, ip string, term bool, osName string) (*session, []
 	h.sessions[s.id] = s
 	h.perIP[ip]++
 	u.sess[s] = true
+	h.emitMeLocked(u)
 	return s, h.helloLocked(s), nil
 }
 
@@ -666,6 +695,7 @@ func (h *Hub) do(req Req) Resp {
 		default:
 			return Resp{Err: "pick a room or a person first"}
 		}
+		h.emitLocked(LocalEvent{Kind: "say", ID: u.id, Nick: u.nick, Msg: m})
 		return Resp{OK: true}
 
 	case "join":
@@ -686,6 +716,7 @@ func (h *Hub) do(req Req) Resp {
 			u.rooms[name] = true
 			h.broadcastLocked(Ev{T: "room", Room: rm.info()})
 			h.toUserLocked(u, sse(Ev{T: "hist", Hist: tail(rm.hist, 100)}))
+			h.emitMeLocked(u)
 		}
 		return Resp{OK: true, Room: name}
 
@@ -703,6 +734,7 @@ func (h *Hub) do(req Req) Resp {
 		} else {
 			h.broadcastLocked(Ev{T: "room", Room: rm.info()})
 		}
+		h.emitMeLocked(u)
 		return Resp{OK: true, Room: name}
 
 	case "nick":
@@ -713,6 +745,7 @@ func (h *Hub) do(req Req) Resp {
 		if err := h.renameLocked(u, n); err != nil {
 			return Resp{Err: err.Error()}
 		}
+		h.emitMeLocked(u)
 		return Resp{OK: true, Nick: u.nick}
 	}
 	return Resp{Err: "unknown request"}
@@ -724,11 +757,20 @@ func (h *Hub) renameLocked(u *user, n string) error {
 	if other := h.byNick[strings.ToLower(n)]; other != nil && other != u {
 		return fmt.Errorf("%s is taken", n)
 	}
-	delete(h.byNick, strings.ToLower(u.nick))
+	h.setNickLocked(u, n)
+	return nil
+}
+
+func (h *Hub) setNickLocked(u *user, n string) {
+	if n == u.nick {
+		return
+	}
+	if h.byNick[strings.ToLower(u.nick)] == u {
+		delete(h.byNick, strings.ToLower(u.nick))
+	}
 	u.nick = n
 	h.byNick[strings.ToLower(n)] = u
 	h.broadcastLocked(Ev{T: "user", User: u.info()})
-	return nil
 }
 
 func (h *Hub) freeNickLocked(want string) string {
@@ -776,4 +818,164 @@ func pairKey(a, b string) string {
 func pairHas(k, id string) bool {
 	a, b, _ := strings.Cut(k, "|")
 	return a == id || b == id
+}
+
+// ---- Bluetooth mode: people who live on other laptops ----
+
+// LocalEvents reports what the person at this computer does (Mesh hubs only).
+func (h *Hub) LocalEvents() <-chan LocalEvent { return h.local }
+
+func (h *Hub) emitLocked(ev LocalEvent) {
+	if h.local == nil {
+		return
+	}
+	select {
+	case h.local <- ev:
+	default: // the mesh is far behind; it re-announces on its own anyway
+	}
+}
+
+func (h *Hub) emitMeLocked(u *user) {
+	if !u.remote {
+		h.emitLocked(LocalEvent{Kind: "me", ID: u.id, Nick: u.nick, Rooms: roomNames(u)})
+	}
+}
+
+func roomNames(u *user) []string {
+	out := make([]string, 0, len(u.rooms))
+	for name := range u.rooms {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// RemoteUser adds or updates someone on another laptop. With rooms == nil
+// their rooms are left as they are.
+func (h *Hub) RemoteUser(id, nick string, on bool, rooms []string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed || id == "" {
+		return
+	}
+	u := h.users[id]
+	if u == nil {
+		if len(h.users) >= maxUsers {
+			return
+		}
+		u = &user{id: id, remote: true, want: cleanNick(nick), on: on, rooms: map[string]bool{}, sess: map[*session]bool{}}
+		u.nick = h.freeNickLocked(nick)
+		h.users[id] = u
+		h.byNick[strings.ToLower(u.nick)] = u
+		h.broadcastLocked(Ev{T: "user", User: u.info()})
+	} else if !u.remote {
+		return // never let the mesh touch the person at this computer
+	} else {
+		if n := cleanNick(nick); n != "" && n != u.want {
+			u.want = n
+			if other := h.byNick[strings.ToLower(n)]; other == nil || other == u {
+				h.setNickLocked(u, n)
+			} else {
+				h.setNickLocked(u, h.freeNickLocked(n)) // two people picked one name
+			}
+		}
+		if u.on != on {
+			u.on = on
+			h.broadcastLocked(Ev{T: "user", User: u.info()})
+		}
+	}
+	if rooms == nil {
+		return
+	}
+	want := map[string]bool{}
+	for _, r := range rooms {
+		if n := cleanRoom(r); n != "" {
+			want[n] = true
+		}
+	}
+	for name := range u.rooms {
+		if !want[name] {
+			h.leaveRoomLocked(u, name)
+		}
+	}
+	for name := range want {
+		if !u.rooms[name] {
+			h.joinRoomLocked(u, name)
+		}
+	}
+}
+
+func (h *Hub) joinRoomLocked(u *user, name string) *room {
+	rm := h.rooms[name]
+	if rm == nil {
+		if len(h.rooms) >= maxRooms {
+			return nil
+		}
+		rm = &room{name: name, members: map[string]bool{}}
+		h.rooms[name] = rm
+	}
+	if !rm.members[u.id] {
+		rm.members[u.id] = true
+		u.rooms[name] = true
+		h.broadcastLocked(Ev{T: "room", Room: rm.info()})
+	}
+	return rm
+}
+
+func (h *Hub) leaveRoomLocked(u *user, name string) {
+	delete(u.rooms, name)
+	rm := h.rooms[name]
+	if rm == nil || !rm.members[u.id] {
+		return
+	}
+	delete(rm.members, u.id)
+	if len(rm.members) == 0 && name != general {
+		delete(h.rooms, name)
+		h.broadcastLocked(Ev{T: "room", Room: &RoomInfo{Name: name, Gone: true}})
+	} else {
+		h.broadcastLocked(Ev{T: "room", Room: rm.info()})
+	}
+}
+
+// RemoteMsg delivers a message that arrived from another laptop. The sender
+// must have been added with RemoteUser first.
+func (h *Hub) RemoteMsg(m Msg) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	u := h.users[m.From]
+	if h.closed || u == nil || !u.remote {
+		return
+	}
+	if m.Text = cleanText(m.Text); m.Text == "" {
+		return
+	}
+	m.Nick = u.nick
+	switch {
+	case m.Room != "":
+		rm := h.rooms[cleanRoom(m.Room)]
+		if rm == nil || !rm.members[u.id] { // they're obviously in it
+			if rm = h.joinRoomLocked(u, cleanRoom(m.Room)); rm == nil {
+				return
+			}
+		}
+		h.nextID++
+		m.ID, m.Room, m.To = h.nextID, rm.name, ""
+		rm.hist = appendCap(rm.hist, m, roomHist)
+		b := sse(Ev{T: "msg", Msg: &m})
+		for id := range rm.members {
+			if x := h.users[id]; x != nil && !x.remote {
+				h.toUserLocked(x, b)
+			}
+		}
+	case m.To != "":
+		to := h.users[m.To]
+		if to == nil || to.remote {
+			return
+		}
+		h.nextID++
+		m.ID, m.ToNick = h.nextID, to.nick
+		k := pairKey(u.id, to.id)
+		h.dms[k] = appendCap(h.dms[k], m, dmHist)
+		h.toUserLocked(to, sse(Ev{T: "msg", Msg: &m}))
+	}
 }

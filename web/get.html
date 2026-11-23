@@ -27,7 +27,7 @@ a{color:inherit}
 <h1>Join the chat</h1>
 <p><b>Nothing to install:</b> open {{range $i, $u := .URLs}}{{if $i}} or {{end}}<a href="{{$u}}"><code>{{$u}}</code></a>{{end}} in any browser on this Wi-Fi.</p>
 <h2>Or install the app with one line</h2>
-<p class="m">Paste the line for your computer into a terminal. After that, just type <code>nook</code> in any terminal (Terminal, PowerShell, the VS Code terminal) to join. <code>nook host</code> starts a room.</p>
+<p class="m">Paste the line for your computer into a terminal. After that, type <code>nook wifi</code> in any terminal (Terminal, PowerShell, the VS Code terminal) to join this room. Plain <code>nook</code> chats over Bluetooth instead, with no Wi-Fi at all.</p>
 <section{{if or (eq .OS "mac") (eq .OS "linux")}} class="me"{{end}}>
 <h2>Mac or Linux, in Terminal</h2>
 <pre>curl -fsSL {{.Base}}/install.sh | sh</pre>

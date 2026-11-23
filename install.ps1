@@ -1,7 +1,7 @@
 # Installs nook as a command you can run from any terminal:
 #
-#   nook          join the room on this Wi-Fi (or start one)
-#   nook host     start the room on this computer
+#   nook          chat over Bluetooth with the laptops nearby
+#   nook wifi     chat over a shared Wi-Fi network instead
 #
 # Two ways to run this installer:
 #   from the nook folder:  double-click install.cmd
@@ -120,8 +120,8 @@ $NookScript = $MyInvocation.MyCommand.Path
     Write-Host ''
     Write-Host "installed $exe"
     Write-Host 'start it any time by typing:'
-    Write-Host '  nook         join the room on this Wi-Fi, or start one'
-    Write-Host '  nook host    start the room on this computer'
+    Write-Host '  nook         chat over Bluetooth with the laptops nearby'
+    Write-Host '  nook wifi    chat over a shared Wi-Fi network instead'
     Write-Host '  nook help    everything else'
     Write-Host '(terminal windows that were already open, and VS Code, need a restart first)'
 }

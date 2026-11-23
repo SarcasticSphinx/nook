@@ -1,8 +1,8 @@
 #!/bin/sh
 # Installs nook as a command you can run from any terminal:
 #
-#   nook          join the room on this Wi-Fi (or start one)
-#   nook host     start the room on this computer
+#   nook          chat over Bluetooth with the laptops nearby
+#   nook wifi     chat over a shared Wi-Fi network instead
 #
 # Two ways to run this installer:
 #   from the nook folder:  ./install.sh
@@ -80,7 +80,12 @@ else
 	[ -n "$pick" ] || fail "dist/ has no build for this computer ($os $arch)"
 	say "copying the app, plus the builds for everyone else ..."
 	rm -f "$data/nook"
-	for f in "$src"/nook-*; do cp -f "$f" "$data/"; done
+	for f in "$src"/nook-*; do
+		# copy, then rename into place: macOS kills a signed app that was
+		# overwritten in place, so an upgrade must never do that
+		cp -f "$f" "$data/.copy.$$"
+		mv -f "$data/.copy.$$" "$data/$(basename "$f")"
+	done
 	target="$data/$pick"
 fi
 chmod +x "$data"/nook* 2>/dev/null || true
@@ -133,6 +138,6 @@ if [ "$onpath" = yes ]; then
 else
 	say "open a new terminal window, then type:"
 fi
-say "  nook         join the room on this Wi-Fi, or start one"
-say "  nook host    start the room on this computer"
+say "  nook         chat over Bluetooth with the laptops nearby"
+say "  nook wifi    chat over a shared Wi-Fi network instead"
 say "  nook help    everything else"
