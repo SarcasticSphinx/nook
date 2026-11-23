@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -85,6 +86,8 @@ type Hub struct {
 	once     sync.Once
 	disc     func(int, time.Duration) []HubInfo
 	local    chan LocalEvent
+	shared   map[string]*storedFile
+	fileDir  string
 }
 
 type user struct {
@@ -350,6 +353,11 @@ func (h *Hub) Close(moved string) {
 			time.Sleep(150 * time.Millisecond) // let the last event reach people
 		}
 		h.srv.Close()
+		h.mu.Lock()
+		if h.fileDir != "" {
+			os.RemoveAll(h.fileDir) // shared files leave no trace
+		}
+		h.mu.Unlock()
 		close(h.done)
 	})
 }
@@ -394,6 +402,8 @@ func (h *Hub) routes() http.Handler {
 	mux.HandleFunc("/ping", h.ping)
 	mux.HandleFunc("/get", h.getPage)
 	mux.HandleFunc("/dl/", h.download)
+	mux.HandleFunc("/upload", h.upload)
+	mux.HandleFunc("/file/", h.fileGet)
 	mux.HandleFunc("/install.sh", h.installer)
 	mux.HandleFunc("/install.ps1", h.installer)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -412,7 +422,7 @@ func (h *Hub) index(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy",
-		"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src *")
+		"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src *; base-uri 'none'; form-action 'none'")
 	io.WriteString(w, indexHTML)
 }
 
@@ -737,6 +747,23 @@ func (h *Hub) do(req Req) Resp {
 		h.emitMeLocked(u)
 		return Resp{OK: true, Room: name}
 
+	case "typing": // "someone is typing...", for the browser's chat view
+		room, peer, err := h.targetLocked(u, req.To)
+		if err != nil {
+			return Resp{Err: err.Error()}
+		}
+		b := sse(Ev{T: "typing", User: u.info(), Text: req.To})
+		if room != "" {
+			for id := range h.rooms[room].members {
+				if x := h.users[id]; x != nil && x != u {
+					h.toUserLocked(x, b)
+				}
+			}
+		} else if peer != u {
+			h.toUserLocked(peer, b)
+		}
+		return Resp{OK: true}
+
 	case "nick":
 		n := cleanNick(req.Arg)
 		if n == "" {
@@ -946,8 +973,13 @@ func (h *Hub) RemoteMsg(m Msg) {
 	if h.closed || u == nil || !u.remote {
 		return
 	}
-	if m.Text = cleanText(m.Text); m.Text == "" {
+	if m.Text = cleanText(m.Text); m.Text == "" && m.File == nil {
 		return
+	}
+	if m.File != nil {
+		f := *m.File
+		f.Name = cleanFileName(f.Name)
+		m.File = &f
 	}
 	m.Nick = u.nick
 	switch {

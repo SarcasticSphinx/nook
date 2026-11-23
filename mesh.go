@@ -24,9 +24,11 @@ type meshCfg struct {
 	Offline  time.Duration // silence after which someone counts as gone
 	Recent   int           // public messages kept to catch newcomers up
 	Tick     time.Duration
+	Retry    time.Duration // ask again for file pieces that didn't arrive
 }
 
-var defaultMeshCfg = meshCfg{TTL: 7, Announce: 30 * time.Second, Offline: 95 * time.Second, Recent: 40, Tick: time.Second}
+var defaultMeshCfg = meshCfg{TTL: 7, Announce: 30 * time.Second, Offline: 95 * time.Second, Recent: 40,
+	Tick: 500 * time.Millisecond, Retry: 2500 * time.Millisecond}
 
 type Mesh struct {
 	hub    *Hub
@@ -56,6 +58,7 @@ type Mesh struct {
 	syncedAt      map[int64]time.Time
 	state         string
 	noAdvert      bool
+	xfer          meshFiles
 
 	stream uint16
 	seq    uint32 // atomic: packet counter for framing
@@ -98,6 +101,8 @@ const (
 	evUp
 	evDown
 	evRecv
+	evSendFile
+	evFetch
 )
 
 type meshEv struct {
@@ -107,6 +112,8 @@ type meshEv struct {
 	shared bool
 	data   []byte
 	state  string
+	send   *outFile
+	fetch  *inFile
 }
 
 func NewMesh(h *Hub, r radio, cfg meshCfg) (*Mesh, error) {
@@ -143,6 +150,7 @@ func (m *Mesh) Close() {
 		for _, l := range m.links {
 			close(l.stop)
 		}
+		m.dropFetches()
 		m.rad.Close()
 	})
 }
@@ -224,10 +232,16 @@ func (m *Mesh) onEvent(e meshEv) {
 		}
 	case evRecv:
 		if b := m.asm.add(e.link, e.data, time.Now()); b != nil {
-			if p, err := decodePkt(b); err == nil {
+			if len(b) > 0 && b[0] == 'C' {
+				m.onChunk(e.link, b)
+			} else if p, err := decodePkt(b); err == nil {
 				m.handle(e.link, p)
 			}
 		}
+	case evSendFile:
+		e.send.reply <- m.shareFile(e.send)
+	case evFetch:
+		m.startFetch(e.fetch)
 	}
 	m.publish()
 }
@@ -391,6 +405,13 @@ func (m *Mesh) handle(from int64, p *pkt) {
 			m.hub.RemoteMsg(Msg{TS: at.UnixMilli(), From: p.From, To: m.me, Text: text})
 			return // it was for us: no need to pass it on
 		}
+	case "fo":
+		if !m.onOffer(from, p, at) {
+			return // a DM file for us: nobody else needs it
+		}
+	case "fq":
+		m.onRequest(from, p)
+		return
 	case "bye":
 		if pr := m.peers[p.From]; pr != nil && pr.on {
 			pr.on, pr.lastSeen = false, time.Time{}
@@ -403,7 +424,7 @@ func (m *Mesh) handle(from int64, p *pkt) {
 }
 
 func (m *Mesh) remember(p *pkt, at time.Time) {
-	if p.Room == "" || m.cfg.Recent <= 0 {
+	if p.Room == "" || m.cfg.Recent <= 0 || (p.T != "msg" && p.T != "fo") {
 		return
 	}
 	cp := *p
@@ -511,6 +532,7 @@ func (m *Mesh) tick(now time.Time) {
 			m.hub.RemoteUser(pr.id, pr.nick, false, nil)
 		}
 	}
+	m.fileTick(now)
 	if now.Sub(m.lastPrune) > 30*time.Second {
 		for mid, t := range m.seen {
 			if now.Sub(t) > 15*time.Minute {

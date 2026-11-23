@@ -141,6 +141,14 @@ type pkt struct {
 	Pub   string   `json:"k,omitempty"` // sender's key for direct messages
 	Box   string   `json:"b,omitempty"` // an encrypted direct message
 	Hist  bool     `json:"h,omitempty"` // a catch-up copy: don't pass it on
+
+	// files (fo: an offer, fq: a request for pieces)
+	FID   string `json:"fi,omitempty"`
+	FName string `json:"fn,omitempty"`
+	Size  int64  `json:"sz,omitempty"`
+	N     int    `json:"nc,omitempty"`
+	Sum   string `json:"su,omitempty"`
+	Want  []int  `json:"w,omitempty"`
 }
 
 var flatePool = sync.Pool{New: func() interface{} {

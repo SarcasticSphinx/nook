@@ -32,13 +32,9 @@ a{color:inherit}
 <h2>Mac or Linux, in Terminal</h2>
 <pre>curl -fsSL {{.Base}}/install.sh | sh</pre>
 </section>
-<section{{if eq .OS "win"}} class="me"{{end}}>
-<h2>Windows 10 / 11, in PowerShell</h2>
-<pre>irm {{.Base}}/install.ps1 | iex</pre>
-</section>
-<section{{if eq .OS "win7"}} class="me"{{end}}>
-<h2>Windows 7 / 8, in Command Prompt</h2>
-<pre>powershell -c "iex (New-Object Net.WebClient).DownloadString('{{.Base}}/install.ps1')"</pre>
+<section{{if or (eq .OS "win") (eq .OS "win7")}} class="me"{{end}}>
+<h2>Windows, in Command Prompt or PowerShell</h2>
+<pre>powershell -ExecutionPolicy Bypass -c "iex ((New-Object Net.WebClient).DownloadString('{{.Base}}/install.ps1'))"</pre>
 </section>
 <h2>Or download a single file</h2>
 <p class="m">Runs without installing; you start it from its folder.</p>

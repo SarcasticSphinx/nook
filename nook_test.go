@@ -117,7 +117,7 @@ func TestChat(t *testing.T) {
 
 	// Renaming is visible to others and names are unique.
 	c.Input("/nick carl")
-	waitFor(t, "rename seen", func() bool { return sysSays(a, "chen is now carl") })
+	waitFor(t, "rename seen", func() bool { return sysSays(a, "chen is now known as carl") })
 	a.Input("/nick carl")
 	waitFor(t, "name taken", func() bool { return sysSays(a, "carl is taken") })
 
@@ -313,17 +313,25 @@ func TestArgs(t *testing.T) {
 	if _, err := parseArgs([]string{"--port", "99999"}); err == nil {
 		t.Fatal("bad port accepted")
 	}
+	for _, s := range skins {
+		if a, err := parseArgs([]string{"--skin", s, "--no-color"}); err != nil || a.skin != s || !a.noColor {
+			t.Fatalf("--skin %s: %+v %v", s, a, err)
+		}
+	}
+	if _, err := parseArgs([]string{"--skin", "neon"}); err == nil {
+		t.Fatal("unknown skin accepted")
+	}
 }
 
 func TestWrap(t *testing.T) {
 	u := &tui{}
-	rows := u.wrap([]part{{"09:41  ali      ", pMeta}, {"one two three four five six", pText}}, 40)
-	if len(rows) != 2 || rows[1].indent != 16 {
-		t.Fatalf("rows=%d indent=%d", len(rows), rows[len(rows)-1].indent)
+	rows := u.wrap(para{parts: []part{{"09:41  ali      ", pMeta, ""}, {"one two three four five six", pText, ""}}}, 40)
+	if len(rows) != 2 || rows[1].x != 16 {
+		t.Fatalf("rows=%d indent=%d", len(rows), rows[len(rows)-1].x)
 	}
-	rows = u.wrap([]part{{"x ", pMeta}, {strings.Repeat("y", 25), pText}}, 10)
+	rows = u.wrap(para{parts: []part{{"x ", pMeta, ""}, {strings.Repeat("y", 25), pText, ""}}}, 10)
 	for _, r := range rows {
-		w := r.indent
+		w := r.x
 		for _, c := range r.cells {
 			w += c.w
 		}
@@ -331,9 +339,9 @@ func TestWrap(t *testing.T) {
 			t.Fatalf("row too wide: %d", w)
 		}
 	}
-	rows = u.wrap([]part{{"> ", pMeta}, {"中文字符测试", pText}}, 8) // double-width
+	rows = u.wrap(para{parts: []part{{"> ", pMeta, ""}, {"中文字符测试", pText, ""}}}, 8) // double-width
 	for _, r := range rows {
-		w := r.indent
+		w := r.x
 		for _, c := range r.cells {
 			w += c.w
 		}

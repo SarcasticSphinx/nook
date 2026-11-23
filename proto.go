@@ -58,14 +58,23 @@ type RoomInfo struct {
 // Msg is a chat message. Room messages have Room set; direct messages have
 // To set instead.
 type Msg struct {
-	ID     int64  `json:"id"`
-	TS     int64  `json:"ts"`
-	Room   string `json:"room,omitempty"`
-	From   string `json:"from"`
-	Nick   string `json:"nick"`
-	To     string `json:"to,omitempty"`
-	ToNick string `json:"tonick,omitempty"`
-	Text   string `json:"text"`
+	ID     int64     `json:"id"`
+	TS     int64     `json:"ts"`
+	Room   string    `json:"room,omitempty"`
+	From   string    `json:"from"`
+	Nick   string    `json:"nick"`
+	To     string    `json:"to,omitempty"`
+	ToNick string    `json:"tonick,omitempty"`
+	Text   string    `json:"text"`
+	File   *FileInfo `json:"file,omitempty"`
+}
+
+// FileInfo describes a file someone shared. In Wi-Fi mode the host keeps
+// it; in Bluetooth mode it stays on the sender's laptop until fetched.
+type FileInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Size int64  `json:"size"`
 }
 
 type Req struct {

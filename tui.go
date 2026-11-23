@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"hash/fnv"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -10,21 +12,26 @@ import (
 	"github.com/rivo/uniseg"
 )
 
-// The full-screen view: messages bottom-aligned like a shell, one input line,
-// no borders, no title, no colours beyond grey. Esc swaps the whole screen
-// for a fake shell prompt; Ctrl+C quits and the terminal is left exactly as
-// it was before.
+// The full-screen view: a thin bar with your chats, the conversation
+// bottom-aligned like a shell, and one input line. Esc swaps the whole
+// screen for a fake shell prompt; Ctrl+C quits and leaves the terminal
+// exactly as it was.
 
 type uiOpts struct {
-	Skin  string
-	Ghost bool
-	Focus bool
-	Wipe  bool
+	Skin    string
+	Ghost   bool
+	Focus   bool
+	Wipe    bool
+	NoBar   bool // hide the chat bar
+	People  bool // show the people list
+	NoColor bool
 }
 
 var (
 	stText = tcell.StyleDefault
 	stMeta = tcell.StyleDefault.Foreground(tcell.ColorGray)
+	// muted colours for names, so a busy room is easy to follow
+	namePalette = []int{73, 137, 108, 139, 110, 173, 67, 133, 143, 168}
 )
 
 type cell struct {
@@ -34,8 +41,8 @@ type cell struct {
 }
 
 type row struct {
-	indent int
-	cells  []cell
+	x     int // column of the first cell
+	cells []cell
 }
 
 type tui struct {
@@ -66,6 +73,9 @@ func runTUI(c *Client, o uiOpts, s tcell.Screen) error {
 	}
 	if err := s.Init(); err != nil {
 		return err
+	}
+	if !validSkin(o.Skin) {
+		o.Skin = "plain"
 	}
 	u := &tui{c: c, s: s, o: o, decoy: newDecoy()}
 	s.SetStyle(tcell.StyleDefault)
@@ -166,6 +176,9 @@ func (u *tui) key(ev *tcell.EventKey) {
 	case tcell.KeyBacktab:
 		u.c.Cycle(-1)
 		u.scroll = 0
+	case tcell.KeyCtrlG:
+		u.c.Goto("#" + general)
+		u.scroll = 0
 	case tcell.KeyPgUp:
 		u.scroll += u.page()
 	case tcell.KeyPgDn:
@@ -221,7 +234,7 @@ func (u *tui) key(ev *tcell.EventKey) {
 }
 
 func (u *tui) insert(r rune) {
-	if len(u.in) >= maxText {
+	if len(u.in) >= maxText+200 { // room for a long /send path
 		return
 	}
 	u.in = append(u.in, 0)
@@ -232,8 +245,8 @@ func (u *tui) insert(r rune) {
 
 func (u *tui) page() int {
 	_, h := u.s.Size()
-	if h > 3 {
-		return h - 2
+	if h > 4 {
+		return h - 3
 	}
 	return 1
 }
@@ -263,6 +276,13 @@ func (u *tui) histMove(d int) {
 	u.cur = len(u.in)
 }
 
+func onOff(b bool) string {
+	if b {
+		return "on"
+	}
+	return "off"
+}
+
 func (u *tui) submit() {
 	line := strings.TrimSpace(string(u.in))
 	u.in, u.cur, u.off, u.scroll = u.in[:0], 0, 0, 0
@@ -290,6 +310,16 @@ func (u *tui) submit() {
 		case "dim", "ghost":
 			u.o.Ghost = !u.o.Ghost
 			return
+		case "people", "panel":
+			u.o.People = !u.o.People
+			return
+		case "bar", "tabs":
+			u.o.NoBar = !u.o.NoBar
+			return
+		case "colors", "colours", "color":
+			u.o.NoColor = !u.o.NoColor
+			u.c.Sys("colours " + onOff(!u.o.NoColor))
+			return
 		case "fade":
 			n, err := strconv.Atoi(arg)
 			if arg == "" {
@@ -305,11 +335,20 @@ func (u *tui) submit() {
 				u.c.Sys("fade off")
 			}
 			return
-		case "skin":
-			if arg == "log" || arg == "plain" {
+		case "skin", "theme", "style":
+			switch {
+			case validSkin(arg):
 				u.o.Skin = arg
-			} else {
-				u.c.Sys("skins: plain, log")
+			case arg == "" || arg == "next":
+				for i, s := range skins {
+					if s == u.o.Skin {
+						u.o.Skin = skins[(i+1)%len(skins)]
+						break
+					}
+				}
+				u.c.Sys("skin: " + u.o.Skin + " · others: " + strings.Join(skins, " "))
+			default:
+				u.c.Sys("skins: " + strings.Join(skins, " "))
 			}
 			return
 		case "focus":
@@ -324,14 +363,60 @@ func (u *tui) submit() {
 	u.c.Input(line)
 }
 
-func (u *tui) style(kind int) tcell.Style {
+func nameColor(who string) tcell.Color {
+	h := fnv.New32a()
+	h.Write([]byte(who))
+	return tcell.PaletteColor(namePalette[h.Sum32()%uint32(len(namePalette))])
+}
+
+func (u *tui) style(p part) tcell.Style {
 	if u.o.Ghost {
 		return stMeta.Dim(true)
 	}
-	if kind == pText {
+	if u.o.NoColor {
+		switch p.kind {
+		case pText, pName:
+			return stText
+		case pMe, pDM, pNotice, pFile:
+			return stText.Bold(true)
+		}
+		return stMeta
+	}
+	switch p.kind {
+	case pText:
 		return stText
+	case pMe:
+		return stText.Bold(true)
+	case pName:
+		return stText.Foreground(nameColor(p.who))
+	case pRoom:
+		return stText.Foreground(tcell.PaletteColor(110))
+	case pDM:
+		return stText.Foreground(tcell.PaletteColor(175)).Bold(true)
+	case pNotice:
+		return stText.Foreground(tcell.PaletteColor(179)).Italic(true)
+	case pFile:
+		return stText.Foreground(tcell.PaletteColor(108)).Bold(true)
 	}
 	return stMeta
+}
+
+// put draws text from column x and returns the column after it.
+func (u *tui) put(x, y, maxX int, text string, st tcell.Style) int {
+	g := uniseg.NewGraphemes(text)
+	for g.Next() {
+		cw := g.Width()
+		if cw <= 0 {
+			continue
+		}
+		if x+cw > maxX {
+			return x
+		}
+		rs := g.Runes()
+		u.s.SetContent(x, y, rs[0], rs[1:], st)
+		x += cw
+	}
+	return x
 }
 
 func (u *tui) draw() {
@@ -348,18 +433,33 @@ func (u *tui) draw() {
 		return
 	}
 	v := u.c.View(1500)
-	area := h - 1
-	rows := u.layout(&v, w, area+u.scroll)
+	top, bottom := 0, h-1 // bottom is the input row
+	if !u.o.NoBar && h >= 5 {
+		u.drawBar(&v, w, 0)
+		top = 1
+	}
+	if len(v.Busy) > 0 && h >= 6 {
+		bottom--
+		u.put(0, bottom, w, strings.Join(v.Busy, "    "), u.style(part{kind: pFile}))
+	}
+	mw := w
+	if u.o.People && w >= 60 {
+		pw := 22
+		mw = w - pw - 1
+		u.drawPeople(&v, mw, top, w, bottom)
+	}
+	area := bottom - top
+	rows := u.layout(&v, mw, area+u.scroll)
 	if len(rows) < area+u.scroll {
 		u.scroll = imax(0, len(rows)-area)
 	}
 	end := len(rows) - u.scroll
 	start := imax(0, end-area)
-	y := area - (end - start)
+	y := top + area - (end - start)
 	for _, r := range rows[start:end] {
-		x := r.indent
+		x := r.x
 		for _, c := range r.cells {
-			if x+c.w > w {
+			if x+c.w > mw {
 				break
 			}
 			s.SetContent(x, y, c.r[0], c.r[1:], c.st)
@@ -369,6 +469,70 @@ func (u *tui) draw() {
 	}
 	u.drawInput(&v, w, h-1)
 	s.Show()
+}
+
+// drawBar shows your chats (the one you're in highlighted, unread counts
+// next to the others) and how many people are here.
+func (u *tui) drawBar(v *View, w, y int) {
+	here := 0
+	for _, p := range v.People {
+		if p.On {
+			here++
+		}
+	}
+	right := fmt.Sprintf(" %d here · Tab: switch ", here)
+	maxX := w - len(right)
+	x := 0
+	for _, ch := range v.Chats {
+		st := u.style(part{kind: pMeta})
+		if ch.Key == v.Target {
+			st = stText.Reverse(true)
+			if u.o.Ghost {
+				st = stMeta.Dim(true).Reverse(true)
+			}
+		}
+		x = u.put(x, y, maxX, " "+ch.Label+" ", st)
+		if ch.Unread > 0 {
+			x = u.put(x, y, maxX, strconv.Itoa(ch.Unread), u.style(part{kind: pDM}))
+		}
+		x = u.put(x, y, maxX, " ", stMeta)
+	}
+	if maxX > x {
+		u.put(maxX, y, w, right, u.style(part{kind: pMeta}))
+	}
+}
+
+// drawPeople lists everyone on the right: who is here, then who has gone.
+func (u *tui) drawPeople(v *View, x0, top, w, bottom int) {
+	meta := u.style(part{kind: pMeta})
+	for y := top; y < bottom; y++ {
+		u.s.SetContent(x0, y, '|', nil, meta)
+	}
+	y := top
+	line := func(text string, st tcell.Style) {
+		if y < bottom {
+			u.put(x0+2, y, w, text, st)
+			y++
+		}
+	}
+	here := 0
+	for _, p := range v.People {
+		if p.On {
+			here++
+		}
+	}
+	line(fmt.Sprintf("people · %d here", here), u.style(part{kind: pText}))
+	for _, p := range v.People {
+		name := p.Nick
+		if p.ID == v.MeID {
+			name += " (you)"
+		}
+		if p.On {
+			line("* "+name, u.style(part{kind: pName, who: p.ID}))
+		} else {
+			line("  "+name, meta)
+		}
+	}
 }
 
 // layout wraps the newest lines until it has at least `need` rows.
@@ -385,7 +549,14 @@ func (u *tui) layout(v *View, width, need int) []row {
 		if u.scroll == 0 && (l.Seq <= u.clearSeq || (fade > 0 && now-l.TS > fade)) {
 			continue
 		}
-		b := u.wrap(fmtLine(l, v, u.o.Skin), width)
+		var prev *Line
+		if i > 0 {
+			prev = &v.Lines[i-1]
+		}
+		var b []row
+		for _, p := range fmtLine(l, prev, v, u.o.Skin) {
+			b = append(b, u.wrap(p, width)...)
+		}
 		blocks = append(blocks, b)
 		n += len(b)
 	}
@@ -396,11 +567,21 @@ func (u *tui) layout(v *View, width, need int) []row {
 	return rows
 }
 
-// wrap breaks parts into rows at word boundaries; continuation rows are
-// indented to line up under the message text.
-func (u *tui) wrap(parts []part, width int) []row {
+// wrap breaks a paragraph into rows at word boundaries. Left-aligned
+// continuation rows line up under the message text; right-aligned and
+// centred paragraphs are placed against the edge or in the middle.
+func (u *tui) wrap(p para, width int) []row {
 	if width < 1 {
 		return nil
+	}
+	if len(p.parts) == 0 {
+		return []row{{}} // an empty spacer row
+	}
+	limit := width
+	if p.max > 0 && p.max < 100 {
+		if limit = width * p.max / 100; limit < 24 {
+			limit = imin(width, 24)
+		}
 	}
 	type tok struct {
 		cells []cell
@@ -409,9 +590,9 @@ func (u *tui) wrap(parts []part, width int) []row {
 	}
 	var toks []tok
 	indent := 0
-	for pi, p := range parts {
-		st := u.style(p.kind)
-		g := uniseg.NewGraphemes(p.text)
+	for pi, pt := range p.parts {
+		st := u.style(pt)
+		g := uniseg.NewGraphemes(pt.text)
 		for g.Next() {
 			cw := g.Width()
 			if cw <= 0 {
@@ -424,24 +605,24 @@ func (u *tui) wrap(parts []part, width int) []row {
 			t := &toks[len(toks)-1]
 			t.cells = append(t.cells, cell{r: g.Runes(), w: cw, st: st})
 			t.w += cw
-			if pi < len(parts)-1 {
+			if pi < len(p.parts)-1 {
 				indent += cw
 			}
 		}
 	}
-	if indent > width/2 {
-		indent = 2
+	if p.align != alignLeft || indent > limit/2 {
+		indent = imin(2, indent)
 	}
-	if width < 8 {
+	if limit < 8 {
 		indent = 0
 	}
 	var rows []row
 	cur := row{}
-	curW, avail := 0, width
+	curW, avail := 0, limit
 	newline := func() {
 		rows = append(rows, cur)
-		cur = row{indent: indent}
-		curW, avail = 0, width-indent
+		cur = row{}
+		curW, avail = 0, limit-indent
 	}
 	for _, t := range toks {
 		switch {
@@ -458,7 +639,7 @@ func (u *tui) wrap(parts []part, width int) []row {
 		case curW+t.w <= avail:
 			cur.cells = append(cur.cells, t.cells...)
 			curW += t.w
-		case t.w <= width-indent && curW > 0:
+		case t.w <= limit-indent && curW > 0:
 			newline()
 			cur.cells = append(cur.cells, t.cells...)
 			curW += t.w
@@ -472,11 +653,31 @@ func (u *tui) wrap(parts []part, width int) []row {
 			}
 		}
 	}
-	return append(rows, cur)
+	rows = append(rows, cur)
+	for i := range rows {
+		rw := 0
+		for _, c := range rows[i].cells {
+			rw += c.w
+		}
+		switch p.align {
+		case alignRight:
+			rows[i].x = imax(0, width-rw-1)
+		case alignCenter:
+			rows[i].x = imax(0, (width-rw)/2)
+		default:
+			if i > 0 {
+				rows[i].x = indent
+			}
+		}
+	}
+	return rows
 }
 
 func (u *tui) prompt(v *View) string {
 	p := v.Label
+	if strings.HasPrefix(v.Target, "@") {
+		p = "DM " + strings.TrimPrefix(v.Label, "@")
+	}
 	if p == "" {
 		p = "(no room)"
 	}
@@ -500,12 +701,11 @@ func (u *tui) drawInput(v *View, w, y int) {
 	if len(p) > w/2 {
 		p = "> "
 	}
-	st := u.style(pMeta)
-	x := 0
-	for _, r := range p { // prompts are ASCII
-		u.s.SetContent(x, y, r, nil, st)
-		x++
+	st := u.style(part{kind: pMeta})
+	if strings.HasPrefix(v.Target, "@") {
+		st = u.style(part{kind: pDM})
 	}
+	x := u.put(0, y, w, p, st)
 	avail := w - x - 1
 	if avail < 1 {
 		u.s.ShowCursor(imax(0, w-1), y)
@@ -517,21 +717,7 @@ func (u *tui) drawInput(v *View, w, y int) {
 	for u.off < u.cur && uniseg.StringWidth(string(u.in[u.off:u.cur])) > avail {
 		u.off++
 	}
-	tst := u.style(pText)
-	cx := x
-	g := uniseg.NewGraphemes(string(u.in[u.off:]))
-	for g.Next() {
-		cw := g.Width()
-		if cw <= 0 {
-			continue
-		}
-		if cx+cw > w {
-			break
-		}
-		rs := g.Runes()
-		u.s.SetContent(cx, y, rs[0], rs[1:], tst)
-		cx += cw
-	}
+	u.put(x, y, w, string(u.in[u.off:]), u.style(part{kind: pText}))
 	u.s.ShowCursor(x+uniseg.StringWidth(string(u.in[u.off:u.cur])), y)
 }
 

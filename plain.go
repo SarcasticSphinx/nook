@@ -16,6 +16,7 @@ func runPlain(c *Client, o uiOpts) {
 	var (
 		mu      sync.Mutex
 		printed int64
+		last    *Line
 	)
 	flush := func() {
 		mu.Lock()
@@ -28,9 +29,14 @@ func runPlain(c *Client, o uiOpts) {
 			}
 		}
 		sort.Slice(fresh, func(i, j int) bool { return fresh[i].Seq < fresh[j].Seq })
+		skin := o.Skin
+		if !validSkin(skin) {
+			skin = "plain"
+		}
 		for i := range fresh {
-			fmt.Println(plainText(fmtLine(&fresh[i], &v, o.Skin)))
+			fmt.Println(plainText(fmtLine(&fresh[i], last, &v, skin)))
 			printed = fresh[i].Seq
+			last = &fresh[i]
 		}
 	}
 	c.SetVerbose(true)

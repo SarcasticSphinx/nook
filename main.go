@@ -1,6 +1,7 @@
-// nook is a tiny chat for people on the same Wi-Fi, with no internet and
-// nothing to install. One small program per computer; it finds the others by
-// itself. Anyone without it can join from a web browser.
+// nook is a tiny chat for the people in one room, with no internet: over
+// Bluetooth by default, or over a shared Wi-Fi network, where anyone without
+// the app can join from a web browser. One small program per computer; it
+// finds the others by itself.
 package main
 
 import (
@@ -21,7 +22,7 @@ import (
 	"golang.org/x/term"
 )
 
-var version = "0.1.0"
+var version = "0.2.0"
 
 //go:embed web/index.html
 var indexHTML string
@@ -48,21 +49,23 @@ options
   -p, --port N         Wi-Fi network port (default 4747)
       --plain          simple line mode instead of the full screen
       --dim            start with faint text
-      --skin log       make messages look like log output
+      --skin NAME      plain chat irc compact log code json (try /skin next)
+      --no-color       no colours at all (so does the NO_COLOR variable)
       --wipe           clear the terminal when you quit
       --id WORD        a second person on the same computer (testing)
 
 while chatting
   Esc       hide: swaps in a normal shell prompt; Esc again to come back
   Ctrl+C    quit at once        Ctrl+L   clear the screen
-  Tab       next room / DM      PgUp/PgDn  scroll back
-  /join #room  /leave  /dm NAME [text]  /r text  /nick NAME
-  /who  /rooms  /info  /dim  /fade 30  /skin log  /focus  /help
+  Tab       next room / DM      Ctrl+G     back to #general
+  /join #room  /leave  /dm NAME [text]  /r text  /nick NAME  /g
+  /send FILE  /get  /files    (or drag a file into the window, then Enter)
+  /who  /people  /rooms  /info  /dim  /fade 30  /skin next  /help
 
 install it once, then just type nook:
   from the nook folder   Mac/Linux: ./install.sh    Windows: double-click install.cmd
-  from a running host    curl -fsSL http://HOST:4747/install.sh | sh
-                         irm http://HOST:4747/install.ps1 | iex   (Windows PowerShell)
+  from the internet      curl -fsSL https://github.com/SarcasticSphinx/nook/releases/latest/download/install.sh | sh
+  from a Wi-Fi host      curl -fsSL http://HOST:4747/install.sh | sh   (Windows: see http://HOST:4747/get)
 
 no app? in Wi-Fi mode, open the address from /info in any browser.
 `
@@ -72,7 +75,7 @@ type args struct {
 	name, key, skin, id string
 	port                int
 	plain, dim, wipe    bool
-	wifi                bool
+	wifi, noColor       bool
 }
 
 func parseArgs(in []string) (args, error) {
@@ -115,9 +118,11 @@ func parseArgs(in []string) (args, error) {
 				}
 			}
 		case "skin":
-			if a.skin, err = need(); err == nil && a.skin != "plain" && a.skin != "log" {
-				err = errors.New("skins: plain, log")
+			if a.skin, err = need(); err == nil && !validSkin(a.skin) {
+				err = errors.New("skins: " + strings.Join(skins, ", "))
 			}
+		case "no-color", "no-colour", "nocolor", "nocolour":
+			a.noColor = true
 		case "plain", "line":
 			a.plain = true
 		case "dim", "ghost":
@@ -236,7 +241,7 @@ func main() {
 	if name == "" {
 		name = defaultName(a.id)
 	}
-	ui := uiOpts{Skin: a.skin, Ghost: a.dim, Wipe: a.wipe}
+	ui := uiOpts{Skin: a.skin, Ghost: a.dim, Wipe: a.wipe, NoColor: a.noColor || os.Getenv("NO_COLOR") != ""}
 	noBluetooth := false
 	if a.cmd == "bt" {
 		if runBluetooth(a, name, ui) {
@@ -302,7 +307,7 @@ func serve(a args) {
 	if len(urls) > 0 {
 		u := urls[0]
 		fmt.Printf("  install:  curl -fsSL %s/install.sh | sh     (Mac, Linux)\n", u)
-		fmt.Printf("            irm %s/install.ps1 | iex         (Windows PowerShell)\n", u)
+		fmt.Printf("            powershell -ExecutionPolicy Bypass -c \"iex ((New-Object Net.WebClient).DownloadString('%s/install.ps1'))\"   (Windows)\n", u)
 		fmt.Printf("            then: nook wifi      all options: %s/get\n", u)
 	}
 	if a.key != "" {

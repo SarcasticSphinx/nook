@@ -50,6 +50,11 @@ type Line struct {
 	Nick string
 	Text string
 	Mine bool
+
+	Notice bool // a system line worth noticing (someone changed their name)
+	Raw    bool // shown as is, without time (/help, /who)
+	File   *FileInfo
+	FileNo int // the number /get uses
 }
 
 type ClientOpts struct {
@@ -64,6 +69,7 @@ type ClientOpts struct {
 	// when something needs attention ("no one nearby yet").
 	Status func() string
 	Note   func() string
+	Files  fileBackend // nil: Wi-Fi mode, through the host
 }
 
 type endResult struct {
@@ -93,6 +99,9 @@ type Client struct {
 	target          string
 	dms             []string
 	lastDM          string
+	lastRead        map[string]int64 // per chat: the last line you've seen
+	fileNo          int
+	busy            map[string]string // file transfers in progress
 	state           int
 	fatal           string
 	hostNow         bool
@@ -117,17 +126,19 @@ func NewClient(o ClientOpts) *Client {
 		IdleConnTimeout:       time.Minute,
 	}
 	return &Client{
-		o:      o,
-		lock:   lockHash(o.Key),
-		nick:   o.Nick,
-		users:  map[string]*UserInfo{},
-		rooms:  map[string]*RoomInfo{},
-		seen:   map[int64]bool{},
-		target: "#" + general,
-		sc:     &http.Client{Transport: tr},
-		hc:     &http.Client{Transport: tr, Timeout: 6 * time.Second},
-		wake:   make(chan struct{}, 1),
-		disc:   discoverFn,
+		o:        o,
+		lock:     lockHash(o.Key),
+		nick:     o.Nick,
+		users:    map[string]*UserInfo{},
+		rooms:    map[string]*RoomInfo{},
+		seen:     map[int64]bool{},
+		target:   "#" + general,
+		lastRead: map[string]int64{},
+		busy:     map[string]string{},
+		sc:       &http.Client{Transport: tr},
+		hc:       &http.Client{Transport: tr, Timeout: 6 * time.Second},
+		wake:     make(chan struct{}, 1),
+		disc:     discoverFn,
 	}
 }
 
@@ -501,8 +512,12 @@ func (c *Client) handle(ev *Ev) (res endResult) {
 		}
 	case "user":
 		if u := ev.User; u != nil {
-			if old := c.users[u.ID]; old != nil && old.Nick != u.Nick && u.ID != c.me.ID {
-				c.sysLocked(old.Nick + " is now " + u.Nick)
+			if old := c.users[u.ID]; old != nil && old.Nick != u.Nick {
+				if u.ID == c.me.ID {
+					c.noticeLocked("you are now known as " + u.Nick)
+				} else {
+					c.noticeLocked(old.Nick + " is now known as " + u.Nick)
+				}
 			}
 			cp := *u
 			c.users[u.ID] = &cp
@@ -562,6 +577,11 @@ func (c *Client) addMsgLocked(m Msg) {
 	}
 	c.seen[m.ID] = true
 	l := Line{ID: m.ID, TS: m.TS + c.skew, From: m.From, Nick: m.Nick, Text: m.Text, Mine: m.From == c.me.ID}
+	if m.File != nil {
+		f := *m.File
+		c.fileNo++
+		l.File, l.FileNo = &f, c.fileNo
+	}
 	if m.Room != "" {
 		l.Key = "#" + m.Room
 	} else {
@@ -601,6 +621,33 @@ func (c *Client) insertLocked(l Line) {
 
 func (c *Client) sysLocked(text string) {
 	c.insertLocked(Line{Sys: true, TS: nowMs(), Text: text})
+}
+
+func (c *Client) noticeLocked(text string) {
+	c.insertLocked(Line{Sys: true, Notice: true, TS: nowMs(), Text: text})
+}
+
+// sysLines shows a block of lines as they are (help, lists).
+func (c *Client) sysLines(lines ...string) {
+	c.mu.Lock()
+	now := nowMs()
+	for _, l := range lines {
+		c.insertLocked(Line{Sys: true, Raw: true, TS: now, Text: l})
+	}
+	c.mu.Unlock()
+	c.changed()
+}
+
+// setBusy shows (or, with text "", clears) a file transfer's progress.
+func (c *Client) setBusy(id, text string) {
+	c.mu.Lock()
+	if text == "" {
+		delete(c.busy, id)
+	} else {
+		c.busy[id] = text
+	}
+	c.mu.Unlock()
+	c.changed()
 }
 
 // Sys shows a local notice.
@@ -701,6 +748,16 @@ type View struct {
 	State  int
 	Nicks  map[string]string
 	Note   string
+	MeID   string
+	People []UserInfo // everyone known: here first, then away
+	Chats  []ChatTab  // your rooms and DMs
+	Busy   []string   // file transfers in progress
+}
+
+// ChatTab is one of your chats, with how many messages you haven't seen.
+type ChatTab struct {
+	Key, Label string
+	Unread     int
 }
 
 func (v *View) label(key string) string {
@@ -733,7 +790,44 @@ func (c *Client) View(n int) View {
 	if c.o.Note != nil {
 		v.Note = c.o.Note()
 	}
+	v.MeID = c.me.ID
+	for _, u := range c.users {
+		v.People = append(v.People, *u)
+	}
+	sort.Slice(v.People, func(i, j int) bool {
+		if v.People[i].On != v.People[j].On {
+			return v.People[i].On
+		}
+		return strings.ToLower(v.People[i].Nick) < strings.ToLower(v.People[j].Nick)
+	})
+	c.lastRead[c.target] = c.seq // what's on screen counts as read
+	unread := map[string]int{}
+	for i := range c.lines {
+		if l := &c.lines[i]; !l.Sys && !l.Mine && l.Seq > c.lastRead[l.Key] {
+			unread[l.Key]++
+		}
+	}
+	for _, k := range append(c.myRoomsLocked(), prefixAll("@", c.dms)...) {
+		v.Chats = append(v.Chats, ChatTab{Key: k, Label: c.labelLocked(k), Unread: unread[k]})
+	}
+	for _, b := range c.busy {
+		v.Busy = append(v.Busy, b)
+	}
+	sort.Strings(v.Busy)
 	return v
+}
+
+// Goto switches to one of your chats by its key.
+func (c *Client) Goto(key string) {
+	if key == "#"+general {
+		c.join(general) // switches, or joins first if you had left it
+		return
+	}
+	c.mu.Lock()
+	c.target = key
+	c.fixTargetLocked()
+	c.mu.Unlock()
+	c.changed()
 }
 
 // Poke asks the screen to redraw (e.g. Bluetooth status changed).
@@ -756,11 +850,23 @@ func (c *Client) Input(line string) {
 		c.say("", line[1:])
 		return
 	case !strings.HasPrefix(line, "/"):
+		if p, ok := asFile(line); ok { // a file dragged into the window
+			c.send(p)
+			return
+		}
 		c.say("", line)
 		return
 	}
 	cmd, arg := splitCmd(line)
 	switch cmd {
+	case "send", "file", "upload":
+		c.send(arg)
+	case "get", "download", "save":
+		c.get(arg)
+	case "files":
+		c.listFiles()
+	case "g", "general", "home":
+		c.Goto("#" + general)
 	case "join", "j":
 		c.join(arg)
 	case "leave", "part":
@@ -771,7 +877,7 @@ func (c *Client) Input(line string) {
 		c.reply(arg)
 	case "nick", "name":
 		c.rename(arg)
-	case "who", "users", "online":
+	case "who", "users", "online", "here":
 		c.who(arg)
 	case "rooms", "list":
 		c.listRooms()
@@ -782,6 +888,10 @@ func (c *Client) Input(line string) {
 	case "help", "h", "?":
 		c.help()
 	default:
+		if p, ok := asFile(line); ok { // an absolute path dragged in: /Users/...
+			c.send(p)
+			return
+		}
 		c.Sys("unknown command /" + cmd + " · /help")
 	}
 }
@@ -990,40 +1100,77 @@ func (c *Client) rename(arg string) {
 	}
 	go c.post(base, Req{SID: sid, Op: "nick", Arg: n}, func(r Resp) {
 		c.mu.Lock()
-		c.nick = r.Nick
+		c.nick = r.Nick // everyone (you too) gets a notice from the host
 		c.mu.Unlock()
-		c.Sys("you are now " + r.Nick)
 	})
 }
 
+// who lists everyone: who is here (and in which rooms) and who has gone.
 func (c *Client) who(arg string) {
 	c.mu.Lock()
 	var rm *RoomInfo
 	if name := cleanRoom(arg); name != "" {
 		if rm = c.rooms[name]; rm == nil {
 			c.mu.Unlock()
-			c.Sys("no room #" + name)
+			c.Sys("no room #" + name + " · /rooms lists them")
 			return
 		}
 	}
-	var names []string
+	type row struct {
+		name, rooms string
+		on          bool
+	}
+	var rows []row
 	for _, u := range c.users {
-		if !u.On || (rm != nil && !has(rm.Members, u.ID)) {
+		if rm != nil && !has(rm.Members, u.ID) {
 			continue
 		}
-		n := u.Nick
+		r := row{name: u.Nick, on: u.On}
 		if u.ID == c.me.ID {
-			n += " (you)"
+			r.name += " (you)"
 		}
-		names = append(names, n)
+		var rs []string
+		for name, info := range c.rooms {
+			if has(info.Members, u.ID) {
+				rs = append(rs, "#"+name)
+			}
+		}
+		sort.Strings(rs)
+		r.rooms = strings.Join(rs, " ")
+		rows = append(rows, r)
 	}
 	c.mu.Unlock()
-	sort.Slice(names, func(i, j int) bool { return strings.ToLower(names[i]) < strings.ToLower(names[j]) })
-	where := "online"
-	if rm != nil {
-		where = "#" + rm.Name
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].on != rows[j].on {
+			return rows[i].on
+		}
+		return strings.ToLower(rows[i].name) < strings.ToLower(rows[j].name)
+	})
+	on, w := 0, 4
+	for _, r := range rows {
+		if r.on {
+			on++
+		}
+		if len(r.name) > w {
+			w = len(r.name)
+		}
 	}
-	c.Sys(fmt.Sprintf("%s (%d): %s", where, len(names), strings.Join(names, ", ")))
+	head := fmt.Sprintf("people here: %d", on)
+	if rm != nil {
+		head = fmt.Sprintf("people in #%s: %d here", rm.Name, on)
+	}
+	if away := len(rows) - on; away > 0 {
+		head += fmt.Sprintf(", %d away", away)
+	}
+	out := []string{head + "  (/dm name to message someone)"}
+	for _, r := range rows {
+		mark, state := "*", r.rooms
+		if !r.on {
+			mark, state = " ", "away"
+		}
+		out = append(out, "  "+mark+" "+pad(r.name, w)+"  "+state)
+	}
+	c.sysLines(out...)
 }
 
 func (c *Client) listRooms() {
@@ -1072,7 +1219,7 @@ func (c *Client) info() {
 		a := addrs[0]
 		c.Sys("browser: " + a)
 		c.Sys("install, Mac/Linux: curl -fsSL " + a + "/install.sh | sh")
-		c.Sys("install, Windows: irm " + a + "/install.ps1 | iex   (all options: " + a + "/get)")
+		c.Sys("install, Windows: open " + a + "/get for the one line to paste")
 	}
 }
 
@@ -1104,11 +1251,26 @@ func (c *Client) setKey(key string) {
 }
 
 func (c *Client) help() {
-	for _, l := range []string{
-		"keys: Esc hide/unhide · Ctrl+C quit · Ctrl+L clear · Tab next chat · PgUp/PgDn scroll",
-		"/join #room · /leave · /dm name [text] · /r text · /nick name · /who · /rooms · /info",
-		"/dim faint text · /fade 30 · /skin log|plain · /focus · /key word · /quit",
-	} {
-		c.Sys(l)
-	}
+	c.sysLines(
+		"keys",
+		"  Esc           hide the chat behind a normal-looking prompt (Esc again: back)",
+		"  Ctrl+C        quit at once",
+		"  Tab           next chat     Shift+Tab: previous     Ctrl+G: back to #general",
+		"  PgUp / PgDn   scroll back   Ctrl+L: clear the screen",
+		"chats",
+		"  /g                 go back to #general",
+		"  /join #room        join or create a room       /leave   leave it",
+		"  /dm name [text]    private message             /r text  reply to the last one",
+		"  /who               who is here, and their rooms   /rooms  all rooms",
+		"  /nick name         change your name (everyone sees it)",
+		"files",
+		"  /send path         send a file to this chat (you can drag a file into the window)",
+		"  /get [n]           download file n, or the newest   /files  list them",
+		"looks",
+		"  /skin name         plain chat irc compact log code json",
+		"  /people  /bar      show the people list / the chat bar",
+		"  /dim  /fade 30     faint text / messages vanish after 30 seconds",
+		"  /focus             only show the chat you're in",
+		"  /info              Bluetooth status or the Wi-Fi address      /quit",
+	)
 }

@@ -25,7 +25,7 @@ func runBluetooth(a args, name string, ui uiOpts) bool {
 	}
 	c := NewClient(ClientOpts{
 		Mode: modeJoin, URL: localURL(h.Port()), Nick: name, Token: deviceToken(a.id),
-		Status: m.Status, Note: m.Note,
+		Status: m.Status, Note: m.Note, Files: m,
 	})
 	m.notify, m.change = c.Sys, c.Poke
 	if a.key != "" {

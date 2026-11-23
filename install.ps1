@@ -1,15 +1,15 @@
-# Installs nook as a command you can run from any terminal:
+# Installs nook so you can type `nook` in any terminal. Nothing else is
+# needed first: no Go, no admin rights.
 #
-#   nook          chat over Bluetooth with the laptops nearby
-#   nook wifi     chat over a shared Wi-Fi network instead
+# From the internet (works in Command Prompt and PowerShell, Windows 7 and up):
+#   powershell -ExecutionPolicy Bypass -c "[Net.ServicePointManager]::SecurityProtocol=3072; iex ((New-Object Net.WebClient).DownloadString('https://github.com/SarcasticSphinx/nook/releases/latest/download/install.ps1'))"
 #
-# Two ways to run this installer:
-#   from the nook folder:  double-click install.cmd
-#   from a running host:   irm http://HOST:4747/install.ps1 | iex
+# With no internet at all:
+#   from a nook folder (USB stick):    double-click install.cmd
+#   from a nook running in Wi-Fi mode: the line shown on http://HOST:4747/get
 #
 # It puts the app in %LOCALAPPDATA%\nook and adds that folder to your PATH,
-# for your account only (no admin needed). Nothing else is changed.
-# To remove it: install.cmd uninstall
+# for your account only. To remove it: install.cmd uninstall
 #
 # Written for Windows PowerShell 2.0 and later, so it also works on Windows 7.
 
@@ -19,6 +19,7 @@ $NookScript = $MyInvocation.MyCommand.Path
 
 & {
     $ErrorActionPreference = 'Stop'
+    $releases = 'https://github.com/SarcasticSphinx/nook/releases/latest/download'
     $dir = Join-Path $env:LOCALAPPDATA 'nook'
     $onWindows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
 
@@ -51,13 +52,29 @@ $NookScript = $MyInvocation.MyCommand.Path
     $arch = $env:PROCESSOR_ARCHITECTURE
     if ($env:PROCESSOR_ARCHITEW6432) { $arch = $env:PROCESSOR_ARCHITEW6432 }
     $osver = [Environment]::OSVersion.Version.Major
+    $old = $osver -lt 10
+    if ($arch -eq 'ARM64') {
+        $list = 'nook-win-arm64.exe', 'nook-win-x64.exe', 'nook-win-x86.exe'
+    } elseif ($arch -eq 'AMD64') {
+        if ($old) { $list = 'nook-win7-x64.exe', 'nook-win7-x86.exe' }
+        else { $list = 'nook-win-x64.exe', 'nook-win7-x64.exe', 'nook-win-x86.exe', 'nook-win7-x86.exe' }
+    } else {
+        if ($old) { $list = @('nook-win7-x86.exe') }
+        else { $list = 'nook-win-x86.exe', 'nook-win7-x86.exe' }
+    }
 
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     $exe = Join-Path $dir 'nook.exe'
     $tmp = Join-Path $dir 'nook.download'
 
+    # A nook folder with builds in dist\ next to this script (USB copy)?
+    $src = $null
+    if ($NookScript) {
+        $d = Join-Path (Split-Path -Parent $NookScript) 'dist'
+        if (Test-Path $d) { $src = $d }
+    }
+
     if ($NookBase) {
-        # Ask the host for the right build for this computer.
         Write-Host "downloading nook from $NookBase ..."
         try {
             (New-Object Net.WebClient).DownloadFile("$NookBase/dl/auto?os=windows&arch=$arch&osver=$osver", $tmp)
@@ -66,34 +83,29 @@ $NookScript = $MyInvocation.MyCommand.Path
             Write-Host "Download failed. Is the host still running? You can also join in a browser: $NookBase"
             return
         }
-    } else {
-        # Copy every build from dist\ so this computer can hand the app out too.
-        if (-not $NookScript) {
-            Write-Host 'Run install.cmd from the nook folder, or use the one-line install shown by a running host.'
-            return
-        }
-        $src = Join-Path (Split-Path -Parent $NookScript) 'dist'
-        $old = $osver -lt 10
-        if ($arch -eq 'ARM64') {
-            $list = 'nook-win-arm64.exe', 'nook-win-x64.exe', 'nook-win-x86.exe'
-        } elseif ($arch -eq 'AMD64') {
-            if ($old) { $list = 'nook-win7-x64.exe', 'nook-win7-x86.exe' }
-            else { $list = 'nook-win-x64.exe', 'nook-win7-x64.exe', 'nook-win-x86.exe', 'nook-win7-x86.exe' }
-        } else {
-            if ($old) { $list = @('nook-win7-x86.exe') }
-            else { $list = 'nook-win-x86.exe', 'nook-win7-x86.exe' }
-        }
+    } elseif ($src) {
         $pick = $null
         foreach ($f in $list) {
             if (Test-Path (Join-Path $src $f)) { $pick = $f; break }
         }
         if (-not $pick) {
-            Write-Host "The dist folder has no build for this computer ($arch). Run build.sh on a computer with Go first."
+            Write-Host "The dist folder has no build for this computer ($arch)."
             return
         }
         Write-Host 'copying the app, plus the builds for everyone else ...'
         Get-ChildItem -Path $src -Filter 'nook-*' | ForEach-Object { Copy-Item -Force $_.FullName $dir }
         Copy-Item -Force (Join-Path $src $pick) $tmp
+    } else {
+        # GitHub needs TLS 1.2, which older Windows doesn't switch on by itself.
+        try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072 } catch { }
+        Write-Host 'downloading nook from GitHub ...'
+        try {
+            (New-Object Net.WebClient).DownloadFile("$releases/$($list[0])", $tmp)
+        } catch {
+            Remove-Item -Force $tmp -ErrorAction SilentlyContinue
+            Write-Host 'Download failed. Check the internet connection, or install from a USB copy of nook.'
+            return
+        }
     }
 
     try {

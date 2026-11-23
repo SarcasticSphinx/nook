@@ -4,41 +4,60 @@ Chat with everyone in the room, with no internet and no Wi-Fi. Mac,
 Windows and Linux laptops talk over **Bluetooth**, passing messages on to
 each other until everyone has them. When there is a shared Wi-Fi network,
 there's a faster **Wi-Fi mode** too, and then people can even join from a
-browser. Rooms, direct messages, no accounts. It runs in any terminal (VS
-Code's included) and looks like nothing much: press **Esc** and it turns
-into an ordinary shell prompt.
+browser. Rooms, direct messages and file sharing, no accounts. It runs in any
+terminal (VS Code's included) and looks like nothing much: press **Esc** and
+it turns into an ordinary shell prompt.
 
 ```
+ #general  @rafi 1                                    3 here · Tab: switch
 09:41  rafi     anyone done with question 3?
 09:41  tanvir   not yet, stuck on part b
-09:42  @rafi rafi   psst, check your DMs
+09:42  rafi     [file] diagram.png · 33 KB  /get 1
+09:43  DM  rafi     psst, the trick is the second loop
 #general> _
 ```
 
 ## Install
 
-Install once, then just type `nook` in any terminal.
+Nothing is needed first: no Go, no Homebrew, no admin password. Paste one
+line into a terminal:
+
+**Mac and Linux**
+
+```sh
+curl -fsSL https://github.com/SarcasticSphinx/nook/releases/latest/download/install.sh | sh
+```
+
+**Windows** (Command Prompt or PowerShell, Windows 7 and up)
+
+```bat
+powershell -ExecutionPolicy Bypass -c "[Net.ServicePointManager]::SecurityProtocol=3072; iex ((New-Object Net.WebClient).DownloadString('https://github.com/SarcasticSphinx/nook/releases/latest/download/install.ps1'))"
+```
+
+Or download `install.cmd` from the [latest release](https://github.com/SarcasticSphinx/nook/releases/latest)
+and double-click it: it fetches and installs everything by itself. (If
+Windows asks about a downloaded file, click *Run*, or *More info → Run anyway*.)
+
+**No internet at all?**
 
 | From | Mac / Linux | Windows |
 |---|---|---|
-| this folder (USB stick, AirDrop...) | `./install.sh` (or double-click `install.command`) | double-click `install.cmd` |
-| someone running Wi-Fi mode | `curl -fsSL http://HOST:4747/install.sh \| sh` | `irm http://HOST:4747/install.ps1 \| iex` |
-
-Windows 7/8: `powershell -c "iex (New-Object Net.WebClient).DownloadString('http://HOST:4747/install.ps1')"`
+| a nook folder (USB stick, AirDrop...) | `./install.sh` or double-click `install.command` | double-click `install.cmd` |
+| someone running Wi-Fi mode | `curl -fsSL http://HOST:4747/install.sh \| sh` | the line shown on `http://HOST:4747/get` |
 
 The installer copies the app to `~/.local/share/nook` and links it as
 `~/.local/bin/nook` (Windows: `%LOCALAPPDATA%\nook`, added to your PATH for
-your account only, no admin needed). Nothing else is installed. Installing
-from this folder also copies the builds for every other computer, so when you
-host in Wi-Fi mode, everyone can install from you. To remove it:
-`./install.sh uninstall` (Windows: `install.cmd uninstall`).
+your account only). Nothing else is installed. Installing from a nook folder
+also copies the builds for every other computer, so when you host in Wi-Fi
+mode, everyone can install from you. To remove it: `sh install.sh uninstall`
+(Windows: `install.cmd uninstall`).
 
 ## Quick start
 
-1. **Get nook onto every laptop**: pass this folder around on a USB stick
-   (or AirDrop it between Macs) and run the installer.
-2. **Turn Bluetooth on and type `nook`.** That's it: laptops nearby find each
-   other within a few seconds. Until the first one is found, the prompt says
+1. **Get nook onto every laptop** with one of the lines above, or pass a
+   nook folder around on a USB stick.
+2. **Turn Bluetooth on and type `nook`.** Laptops nearby find each other
+   within a few seconds. Until the first one is found, the prompt says
    `(no one nearby yet)`.
 3. On a Mac, the first time, macOS asks whether nook may use Bluetooth:
    click **Allow**.
@@ -51,9 +70,10 @@ host in Wi-Fi mode, everyone can install from you. To remove it:
 |---|---|---|
 | Needs | Bluetooth switched on | one shared Wi-Fi network (no internet needed) |
 | Host | none: every laptop passes messages on | one laptop hosts, picked automatically |
-| Speed | usually under a second per message | instant |
+| Messages | usually under a second | instant |
+| Files | up to 50 MB, slow (tens of KB/s) | up to 2 GB, at Wi-Fi speed |
 | Join from a browser | no | yes |
-| Direct messages | encrypted (they hop through other laptops) | go through the host, not encrypted |
+| Direct messages and DM files | encrypted (they hop through other laptops) | go through the host, not encrypted |
 | History | recent messages, from the laptops near you | kept by the host until it quits |
 | Windows 7/8 | no | yes |
 
@@ -78,33 +98,65 @@ needs two laptops: one computer can't link to itself.
 |---|---|
 | **Esc** | hide: the screen becomes a normal shell prompt (`you@laptop folder %` or `PS C:\...>`). You can type `ls`, `cd`, `pwd`, `clear` in it. Esc again brings the chat back. |
 | **Ctrl+C** | quit instantly. The terminal looks exactly as before. Press Up, Enter to come back. |
-| **Ctrl+L** / `/clear` | clear the screen (PgUp still scrolls back) |
-| **Tab** / Shift+Tab | switch between your rooms and DMs; the prompt shows where you're typing |
-| PgUp / PgDn, Up / Down | scroll back, previous messages you typed |
-| `/join #room` | join or create a room (`#general` is everyone) |
-| `/leave` | leave the current room |
+| **Tab** / Shift+Tab | switch between your rooms and DMs (the bar at the top shows them, with unread counts) |
+| **Ctrl+G** / `/g` | back to #general from anywhere |
 | `/dm name [text]` | private message (a name prefix is enough: `/dm raf hi`) |
-| `/r text` | reply to whoever messaged you last |
-| `/nick name` | change your name |
-| `/who`, `/who #room`, `/rooms` | who's around, what rooms exist |
-| `/info` | Bluetooth status, or the Wi-Fi address to share |
-| `/dim` | faint text, hard to read from a distance or an angle |
-| `/fade 20` | messages disappear from the screen after 20 seconds (`/fade off`) |
-| `/skin log` | messages look like program log output (`/skin plain` to undo) |
+| `/r text` | reply to whoever messaged you last, without leaving the chat you're in |
+| `/join #room`, `/leave` | join or create a room, leave it (`#general` is everyone) |
+| `/who`, `/rooms` | everyone connected, who's away, and their rooms; all rooms |
+| `/people` | keep a list of everyone on the right side of the screen |
+| `/nick name` | change your name: everyone sees "rafi is now known as rafa", and your old messages show the new name |
+| `/send path` | share a file with the chat you're in. Or drag the file into the terminal window and press Enter. |
+| `/get`, `/get 3`, `/files` | download the newest file (or number 3) to your Downloads folder; list the files shared so far |
+| `/skin next` | change the look (see below) |
+| `/dim`, `/fade 20` | faint text; messages disappear from the screen after 20 seconds (`/fade off`) |
 | `/focus` | show only the chat you're in |
+| `/colors`, `/bar` | colours on or off; the chat bar on or off |
+| Ctrl+L / `/clear`, PgUp / PgDn, Up / Down | clear the screen, scroll back, previous messages you typed |
+| `/info` | Bluetooth status, or the Wi-Fi address to share |
 | `/key word` | join a Wi-Fi room that has a password |
 
-Options: `--name NAME`, `--dim`, `--skin log`, `--wipe` (also clear the
-terminal's scrollback when quitting), `--plain` (simple line mode for odd
-terminals). Wi-Fi mode only: `--key PASSWORD` (lock the room),
-`nook join 192.168.0.105` (skip discovery), `nook scan` (search harder when
-automatic finding is blocked), `nook serve` (host without a chat screen).
-`nook help` lists everything.
+`/help` shows all of this in the app.
 
-The **browser version** (Wi-Fi mode) works the same way: Esc swaps in a page
-of study notes (the tab is called "notes" and has no icon), the commands are
-the same, `/autohide` hides the chat whenever you click away, and Ctrl+W
-closes the tab while Ctrl+Shift+T brings it straight back, still signed in.
+**Telling chats apart.** Lines from the chat you're in have no label. Lines
+from anywhere else say where they're from: `DM  rafi` (a DM to you),
+`DM to rafi` (one you sent), `#lab` (another room). DMs are always shown
+in their own colour; other rooms are faint.
+
+**Skins.** `/skin NAME` or `--skin NAME`:
+
+| Skin | Looks like |
+|---|---|
+| `plain` | the default: `09:41  rafi     anyone done?` |
+| `chat` | messages grouped by person, yours on the right |
+| `irc` | `[09:41] <rafi> anyone done?` |
+| `compact` | `rafi: anyone done?`, nothing else |
+| `log` | `09:41:07.120 INFO  general/rafi: anyone done?` |
+| `code` | `   42 \| // rafi: anyone done?` |
+| `json` | `{"t":"09:41:07","chat":"#general","from":"rafi","text":"anyone done?"}` |
+
+Options: `--name NAME`, `--dim`, `--skin NAME`, `--no-color` (or the
+`NO_COLOR` variable), `--wipe` (also clear the terminal's scrollback when
+quitting), `--plain` (simple line mode for odd terminals). Wi-Fi mode only:
+`--key PASSWORD` (lock the room), `nook join 192.168.0.105` (skip
+discovery), `nook scan` (search harder when automatic finding is blocked),
+`nook serve` (host without a chat screen). `nook help` lists everything.
+
+### The browser version (Wi-Fi mode)
+
+Open the host's address in any browser. It has two looks, switched with the
+button at the top right or `/ui chat` and `/ui term`:
+
+- **Chat**: bubbles grouped by person, your chats and everyone connected in
+  a side list (with unread counts and who's here), "rafi is typing", image
+  previews, and files by dragging them onto the page, pasting, or the
+  paperclip. On a phone the side list folds away behind a menu button.
+- **Terminal**: the same plain text look as the app.
+
+In both, Esc swaps in a page of study notes (the tab is called "notes" and
+has no icon), the commands are the same as in the app, `/autohide` hides
+the chat whenever you click away, and Ctrl+W closes the tab while
+Ctrl+Shift+T brings it straight back, still signed in.
 
 ### Staying low-key
 
@@ -113,10 +165,13 @@ closes the tab while Ctrl+Shift+T brings it straight back, still signed in.
   window on Win+\`. On a Mac, Cmd+H hides the app.
 - **Rename the file** to something boring (`build`, `devserver.exe`...).
   The name shows up in the terminal tab.
-- No colours, no title bar, no sounds, no notifications: new messages never
-  make the screen flash or beep, and nothing changes while it's hidden.
+- Muted colours only (none with `/colors` or `--no-color`), no title bar,
+  no sounds, no notifications: new messages never make the screen flash or
+  beep, and nothing changes while it's hidden.
 - Over Bluetooth, nook advertises no name: only an anonymous service id.
-- **Nothing is written to disk.** History lives only in memory.
+- **Chat history is never written to disk**; it lives only in memory. Files
+  are saved only when you `/get` them. A Wi-Fi host keeps shared files in a
+  temporary folder that it deletes when it quits.
 - For a real *narrow viewing angle*, a cheap **privacy screen filter** does
   what software can't. Lower brightness plus `/dim` gets you part of the way.
 
@@ -142,14 +197,21 @@ closes the tab while Ctrl+Shift+T brings it straight back, still signed in.
   others. That is why every command works the same in both modes.
 - **Who's around.** Every laptop says "I'm here" about every 30 seconds.
   Silence for 95 seconds means gone, and quitting says goodbye at once.
+  A rename is announced straight away, so it reaches everyone.
 - **Catching up.** A laptop that arrives late gets the last 40 room messages
   from the first laptop it links to.
 - **Small pieces.** Some Bluetooth links carry only 20 bytes at a time, so
   messages are compressed and cut into numbered pieces, then put back
   together, even when several laptops share one link.
-- **Private messages are encrypted** (X25519 key exchange, then AES-GCM)
-  for their one recipient, with fresh keys every time nook starts. That stops
-  anyone reading along; it does not prove who is who.
+- **Files** are announced like messages, but the file itself only travels
+  when someone asks for it, and only along the path between the two laptops
+  (the way the announcement came), so a download doesn't slow down the
+  whole room. It's sent in 2 KB pieces, 16 of them on the way at once;
+  missing pieces are asked for again, and a SHA-256 checksum checks the whole
+  file at the end.
+- **Private messages and DM files are encrypted** (X25519 key exchange, then
+  AES-GCM) for their one recipient, with fresh keys every time nook starts.
+  That stops anyone reading along; it does not prove who is who.
 - **Windows** laptops can't tell apart the laptops connected to them (a
   limit of the Bluetooth library), so whatever they pass on reaches all of
   those at once. The mesh is built to work with that.
@@ -168,6 +230,11 @@ closes the tab while Ctrl+Shift+T brings it straight back, still signed in.
   program. Everyone else connects to it, the terminal app and browsers
   alike, over plain HTTP: messages stream down as Server-Sent Events and go
   up as small JSON posts.
+- **Files** go up to the host once and everyone downloads them from there.
+  If the connection drops in the middle, the download carries on from where
+  it stopped instead of starting over. A file shared in a DM can only be
+  fetched by the two people in it. The host keeps files for 3 hours (8 GB
+  at most).
 - **Finding the host**: `nook wifi` broadcasts a "who's hosting?" packet on
   UDP port 4747 and the host answers. Joiners need no open ports: Windows
   Firewall lets replies to your own broadcast back in for a few seconds, so
@@ -180,13 +247,50 @@ closes the tab while Ctrl+Shift+T brings it straight back, still signed in.
   sends its people over.
 - **The host leaves?** It tells everyone who should take over (preferring a
   Mac). The rest find the new host within a few seconds and browsers follow
-  automatically. Messages from before are lost, on purpose.
+  automatically. If the host just restarts, browsers reconnect where they
+  are and keep their names. Messages from before are lost, on purpose.
 - Names are tied to the device, so after quitting and coming back you keep
   your name and DMs, without saving anything to disk.
 
 In both modes each person is limited to 4 messages a second (bursts of 8)
 and 1000 characters per message, and control characters and terminal escape
 codes are stripped so nobody can mess with your screen.
+
+### Making file transfer fast: what we found
+
+- **Wi-Fi is the fast path.** Shared files go through the host at Wi-Fi
+  speed: megabytes per second. For anything bigger than a few MB, use Wi-Fi
+  mode (a phone hotspot or any spare router works, no internet needed).
+- **Bluetooth Low Energy is slow by nature.** The radio sends at 1 or 2
+  Mbit/s, but apps get far less after protocol overhead, connection timing
+  and small packets. Even tuned lab setups (2M PHY, 251-byte packets) top
+  out around 100 to 170 KB/s, and laptops talking to each other get less.
+  ([Memfault](https://interrupt.memfault.com/blog/ble-throughput-primer),
+  [Nordic](https://docs.nordicsemi.com/r/bundle/sds_s140/page/sds/s1xx/ble_data_throughput/ble_data_throughput.html),
+  [Novel Bits](https://novelbits.io/bluetooth-5-speed-maximum-throughput/))
+- **What nook does about it:**
+  - writes without waiting for an acknowledgement per packet ("write
+    without response"), letting the system say when it's ready for more
+    ([`canSendWriteWithoutResponse`](https://developer.apple.com/documentation/corebluetooth/cbperipheral/cansendwritewithoutresponse)
+    on Macs), in the largest packets each link allows;
+  - keeps 16 pieces in flight, so the link never sits idle waiting for a
+    round trip, and asks again only for the pieces that went missing;
+  - sends file pieces as raw bytes, with none of the 33% extra that
+    encoding them as text would add;
+  - routes pieces only along the path between sender and receiver.
+- **What would be faster, and why nook doesn't use it.** L2CAP channels skip
+  some of Bluetooth's overhead and Macs support them, but Windows gives apps
+  no way to open them (apps only get GATT and classic RFCOMM:
+  [Microsoft](https://learn.microsoft.com/en-us/windows/uwp/devices-sensors/bluetooth-low-energy-overview),
+  [Stack Overflow](https://stackoverflow.com/questions/66391397/use-ble-l2cap-coc-on-windows)),
+  so a mixed Mac and Windows room can't rely on them. Classic Bluetooth
+  needs every pair of laptops to be paired first, and Apple's and
+  Microsoft's direct Wi-Fi links (AWDL, Wi-Fi Direct) don't talk to each
+  other.
+- **What to expect over Bluetooth:** a 1 MB file in roughly 20 seconds to a
+  few minutes, depending on the laptops and how many hops apart they are.
+  These are estimates: Bluetooth file speed hasn't been measured on real
+  laptops yet.
 
 ### Very low-end laptops
 
@@ -197,6 +301,7 @@ codes are stripped so nobody can mess with your screen.
 - **Old systems:** Windows 7/8 use `nook-win7-x64.exe` / `nook-win7-x86.exe`
   (Wi-Fi mode only); macOS 10.13 to 12 use `nook-mac-legacy`; 32-bit
   Windows 10 uses `nook-win-x86.exe`. Anything older can use the browser.
+  The installers pick the right one by themselves.
 
 ## The network options we compared
 
@@ -204,7 +309,7 @@ For about 30 laptops with no internet:
 
 | Option | Devices | Verdict |
 |---|---|---|
-| Bluetooth mesh (nook's default) | any number in one room | **Works with Wi-Fi off.** Each laptop links to a few neighbours and passes messages on. Slower than Wi-Fi. |
+| Bluetooth mesh (nook's default) | any number in one room | **Works with Wi-Fi off.** Each laptop links to a few neighbours and passes messages on. Slower than Wi-Fi, especially for files. |
 | Any Wi-Fi router, no internet cable | 30+ | **Fastest.** Even an old or $15 travel router handles 30 laptops of text chat easily. |
 | The room's existing Wi-Fi | many | Works if it lets devices talk to each other. Many campus and guest networks turn on "client isolation", which blocks that. Test it: `nook host` on one laptop, open its address on another. |
 | Windows Mobile Hotspot | 8 max | Fine for a small group; Microsoft caps it at 8 devices. |
@@ -231,36 +336,50 @@ For about 30 laptops with no internet:
   use Wi-Fi mode's browser version.
 - **Mac "local network" prompt** (Wi-Fi mode): VS Code, iTerm and browsers
   may ask once to "find devices on your local network". Click Allow.
-- **Mac "can't be opened"**: happens only if you downloaded with a browser.
-  Run `xattr -c nook` once, or use the installer.
+- **Mac "can't be opened"**: happens only if you downloaded the app itself
+  with a browser. Use the one-line installer instead.
 - **`nook: command not found`** right after installing: open a new terminal
   window (on Windows, restart VS Code if you use its terminal).
 - **Wi-Fi mode can't find the room**: try `nook scan`, or ask the host to
   run `/info` and use `nook join ADDRESS`. If that fails too, the Wi-Fi is
   isolating devices: use a separate router or hotspot.
+- **A file is "too big for Bluetooth"**: the limit is 50 MB. Use Wi-Fi mode
+  for it.
 
 ## What has been tested
 
 - The Bluetooth mesh logic, with simulated Bluetooth: 30 laptops each linked
   to only a few others, Windows-style shared links, 20-byte pieces, long
-  messages in Bengali script, late arrivals catching up, people leaving, and
-  DMs staying private.
+  messages in Bengali script, late arrivals catching up, people leaving,
+  renames reaching everyone, and DMs staying private.
+- Bluetooth file sharing, simulated: across 3 hops, over a Windows-style
+  shared 20-byte link, a DM file staying private, and a link that loses 3%
+  of its pieces. Every file arrived complete, checked by its checksum.
+- Wi-Fi file sharing for real over loopback: an 8 MB file, a download cut
+  off twice that carries on without sending anything twice, and DM files
+  that nobody else can fetch.
+- The browser version in a real browser: both looks, DMs, renames, files by
+  drag and drop, image previews, the typing indicator, the Esc page, a phone
+  sized screen, and the host restarting.
 - The Mac Bluetooth driver starts on a Mac and asks for permission. It has
   **not yet been tested between two real laptops**.
 - The Windows and Linux Bluetooth driver compiles for every target; it has
   **not yet been run on real hardware**.
-- Wi-Fi mode, the browser version, the installers and the full-screen view,
-  end to end on a Mac. The Windows builds compile but haven't been run.
+- Wi-Fi mode, the installers and the full-screen view, end to end on a Mac.
+  The Windows builds compile but haven't been run.
 
 ## Honest security notes
 
-- Bluetooth mode: room messages are readable by every laptop running nook
-  nearby (that's what a room is). DMs are encrypted for their recipient, but
-  nothing proves who is who: someone could pretend to be someone else.
-- Wi-Fi mode: messages are **not encrypted** on the network, and the host's
-  computer can read every message passing through it. `--key` keeps people
-  without the password out of the room, but someone capturing Wi-Fi traffic
-  could still read it.
+- Bluetooth mode: room messages and room files can be read by every laptop
+  running nook nearby (that's what a room is). DMs and DM files are encrypted
+  for their recipient, but nothing proves who is who: someone could pretend
+  to be someone else.
+- Wi-Fi mode: messages and files are **not encrypted** on the network, and
+  the host's computer can read everything passing through it. `--key` keeps
+  people without the password out of the room, but someone capturing Wi-Fi
+  traffic could still read it.
+- Downloaded files are saved as files, never opened or run by nook. Treat
+  them like any file someone hands you.
 
 ## Building
 
@@ -279,17 +398,21 @@ go run . wifi --id test                       # try Wi-Fi mode
 | File | What it is |
 |---|---|
 | `mesh.go` | Bluetooth mode: passing messages on, catching up, who's around |
+| `meshfiles.go` | Bluetooth file sharing: offers, routing, pieces, retries, checksums |
 | `frame.go`, `dmcrypt.go` | cutting messages into Bluetooth-sized pieces; encrypting DMs |
 | `radio.go` | what a Bluetooth driver has to provide |
 | `ble_darwin.m`, `ble_darwin.go` | the Mac driver (Apple's CoreBluetooth) |
 | `ble_tinygo.go` | the Windows and Linux driver (tinygo.org/x/bluetooth) |
 | `btmode.go` | starting Bluetooth mode, and `nook check` |
 | `hub.go` | the chat server: rooms, DMs, history; hosting and handing over in Wi-Fi mode |
+| `files.go` | the Wi-Fi host's file storage: uploads, downloads, clean-up |
+| `transfer.go` | `/send`, `/get` and `/files`, with progress and speed |
 | `discover.go` | finding Wi-Fi hosts (UDP broadcast) and `nook scan` |
-| `client.go` | connection, reconnection and failover, commands |
-| `tui.go`, `decoy.go` | the full-screen view and the Esc fake shell |
+| `client.go` | connection, reconnection and failover, commands, `/who` and `/help` |
+| `format.go` | how a message looks in each skin |
+| `tui.go`, `decoy.go` | the full-screen view (chat bar, people list) and the Esc fake shell |
 | `plain.go` | line mode |
-| `web/index.html` | the browser version (one file, no dependencies) |
+| `web/index.html` | the browser version, both looks (one file, no dependencies) |
 | `dl.go`, `web/get.html` | the download page and one-line installers a Wi-Fi host serves |
 | `install.sh`, `install.ps1`, `install.cmd`, `install.command` | the installers |
 | `go.legacy.mod` | the older libraries used for the Windows 7/8 and old-Mac builds |

@@ -17,6 +17,20 @@ type simNet struct {
 	mu   sync.Mutex
 	next int64
 	mtu  int
+	loss float64 // share of frames lost in the air
+	rng  *rand.Rand
+}
+
+func (n *simNet) lost() bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.loss == 0 {
+		return false
+	}
+	if n.rng == nil {
+		n.rng = rand.New(rand.NewSource(42))
+	}
+	return n.rng.Float64() < n.loss
 }
 
 func (n *simNet) id() int64 {
@@ -63,6 +77,9 @@ func (r *simRadio) Send(link int64, f []byte) error {
 	r.mu.Unlock()
 	if len(ends) == 0 {
 		return errors.New("link gone")
+	}
+	if r.net.lost() {
+		return nil // gone into thin air; the sender doesn't know
 	}
 	for _, e := range ends {
 		if ev := e.r.events(); ev != nil {
@@ -139,7 +156,7 @@ func (n *simNet) share(p *simRadio, cs ...*simRadio) {
 
 // ---- simulated laptops ----
 
-var testMeshCfg = meshCfg{TTL: 7, Announce: time.Second, Offline: 6 * time.Second, Recent: 40, Tick: 50 * time.Millisecond}
+var testMeshCfg = meshCfg{TTL: 7, Announce: time.Second, Offline: 6 * time.Second, Recent: 40, Tick: 50 * time.Millisecond, Retry: 300 * time.Millisecond}
 
 type simNode struct {
 	hub  *Hub
@@ -160,7 +177,7 @@ func newSimNode(t *testing.T, n *simNet, name string, cfg meshCfg) *simNode {
 		t.Fatal(err)
 	}
 	c := NewClient(ClientOpts{Mode: modeJoin, URL: localURL(h.Port()), Nick: name, Token: deviceToken("sim-" + name),
-		Status: m.Status, Note: m.Note})
+		Status: m.Status, Note: m.Note, Files: m})
 	m.notify, m.change = c.Sys, c.Poke
 	if err := m.Start(); err != nil {
 		t.Fatal(err)
