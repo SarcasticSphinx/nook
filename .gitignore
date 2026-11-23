@@ -1,0 +1,9 @@
+# build output (binaries are built with ./build.sh)
+dist/
+/nook
+/nook.exe
+*.test
+
+# OS clutter
+.DS_Store
+Thumbs.db

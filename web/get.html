@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>get the app</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#fff;--fg:#222;--mute:#777;--box:#f3f3f3;--hi:#eef3ff}
+@media (prefers-color-scheme:dark){:root{--bg:#1c1c1c;--fg:#ddd;--mute:#999;--box:#272727;--hi:#1f2633}}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;margin:0}
+main{max-width:46rem;margin:0 auto;padding:2rem 1rem 4rem}
+h1{font-size:1.4rem;margin:0 0 .6rem}
+h2{font-size:1.05rem;margin:1.4rem 0 .4rem}
+h3{font-size:.95rem;margin:1rem 0 .3rem}
+p{margin:.4rem 0}
+.m{color:var(--mute);font-size:.9rem}
+code,pre{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+pre{background:var(--box);padding:.6rem .8rem;border-radius:6px;white-space:pre-wrap;word-break:break-all;margin:.3rem 0 1rem}
+section{padding:.1rem .8rem .3rem;border-radius:8px;margin:0 -.8rem}
+section.me{background:var(--hi)}
+a{color:inherit}
+</style>
+</head>
+<body>
+<main>
+<h1>Join the chat</h1>
+<p><b>Nothing to install:</b> open {{range $i, $u := .URLs}}{{if $i}} or {{end}}<a href="{{$u}}"><code>{{$u}}</code></a>{{end}} in any browser on this Wi-Fi.</p>
+<h2>Or install the app with one line</h2>
+<p class="m">Paste the line for your computer into a terminal. After that, just type <code>nook</code> in any terminal (Terminal, PowerShell, the VS Code terminal) to join. <code>nook host</code> starts a room.</p>
+<section{{if or (eq .OS "mac") (eq .OS "linux")}} class="me"{{end}}>
+<h2>Mac or Linux, in Terminal</h2>
+<pre>curl -fsSL {{.Base}}/install.sh | sh</pre>
+</section>
+<section{{if eq .OS "win"}} class="me"{{end}}>
+<h2>Windows 10 / 11, in PowerShell</h2>
+<pre>irm {{.Base}}/install.ps1 | iex</pre>
+</section>
+<section{{if eq .OS "win7"}} class="me"{{end}}>
+<h2>Windows 7 / 8, in Command Prompt</h2>
+<pre>powershell -c "iex (New-Object Net.WebClient).DownloadString('{{.Base}}/install.ps1')"</pre>
+</section>
+<h2>Or download a single file</h2>
+<p class="m">Runs without installing; you start it from its folder.</p>
+{{range .Groups}}<section>
+<h3>{{.Title}}</h3>
+{{range .Items}}<p>{{.Desc}} <span class="m">· {{.Size}} · <a href="{{.Link}}">direct download</a></span></p>
+<pre>{{.Cmd}}</pre>
+{{end}}</section>
+{{end}}
+{{if .Locked}}<p>This room has a password: add <code>--key PASSWORD</code> when you start the app.</p>{{end}}
+<h2>First run</h2>
+<p><b>Mac:</b> if macOS asks whether your terminal or VS Code may find devices on the local network, click Allow. If you downloaded with the browser instead of the command above, run <code>xattr -c nook</code> once.</p>
+<p><b>Windows:</b> if a firewall window appears, only the computer that hosts needs Allow (tick both Private and Public). If Windows refuses to run the app, use the browser link above.</p>
+<p class="m">nook {{.Version}} · you can rename the file to anything you like.</p>
+</main>
+</body>
+</html>

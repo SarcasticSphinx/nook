@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>notes</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#ffffff;--fg:#2b2b2b;--mute:#9b9b9b}
+@media (prefers-color-scheme:dark){:root{--bg:#1d1d1d;--fg:#cfcfcf;--mute:#6c6c6c}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;-webkit-text-size-adjust:100%}
+#app{display:flex;flex-direction:column;height:100%}
+#log{flex:1;overflow-y:auto;padding:12px 16px 4px}
+.l{display:flex;gap:1ch}
+.h{flex:none;color:var(--mute);white-space:pre}
+.t{flex:1;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.o .t,.s .t{color:var(--mute)}
+#bar{display:flex;padding:4px 16px 12px}
+#p{flex:none;color:var(--mute);white-space:pre}
+#in{flex:1;min-width:0;border:0;outline:0;background:transparent;color:inherit;font:inherit;padding:0;margin:0}
+body.g #app{opacity:.3}
+#d{display:none;max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem 4rem;font:16px/1.65 Georgia,"Times New Roman",serif}
+#d h1{font-size:1.6rem;font-weight:600;margin:0 0 .2rem}
+#d h2{font-size:1.1rem;margin:1.6rem 0 .3rem}
+#d p,#d li{margin:.35rem 0}
+#d code{font:.88em ui-monospace,Menlo,Consolas,monospace}
+#d .m{color:var(--mute);font-size:.9rem;margin-bottom:1.4rem}
+body.dec #app{display:none}
+body.dec #d{display:block}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="log"></div>
+  <div id="bar"><span id="p">...&gt; </span><input id="in" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="message"></div>
+</div>
+<article id="d">
+  <h1>Sorting algorithms</h1>
+  <div class="m">notes, week 6</div>
+  <h2>1. Insertion sort</h2>
+  <p>Build the sorted part one element at a time: take the next element and shift it left past every larger element until it sits in place.</p>
+  <p>Time <code>O(n²)</code> in the worst and average case, but <code>O(n)</code> when the input is already almost sorted. Extra space <code>O(1)</code>. Stable.</p>
+  <h2>2. Merge sort</h2>
+  <p>Split the array in half, sort each half recursively, then merge the two sorted halves with two pointers.</p>
+  <p>Time <code>O(n log n)</code> in every case. Needs an <code>O(n)</code> buffer for merging. Stable, and the natural choice for linked lists.</p>
+  <h2>3. Quicksort</h2>
+  <p>Pick a pivot, partition so smaller items end up on the left and larger ones on the right, then recurse on both sides.</p>
+  <p>Average <code>O(n log n)</code>, worst case <code>O(n²)</code> when the pivots are bad (for example, always the first element of input that is already sorted). Not stable. A random pivot or median-of-three avoids the worst case in practice.</p>
+  <h2>4. Heapsort</h2>
+  <p>Turn the array into a max-heap, then repeatedly swap the root to the end and sift the new root down.</p>
+  <p>Always <code>O(n log n)</code>, <code>O(1)</code> extra space, not stable.</p>
+  <h2>Which one when</h2>
+  <ul>
+    <li>Small or nearly sorted input: insertion sort.</li>
+    <li>Need stability, or sorting a linked list: merge sort.</li>
+    <li>General in-memory sorting: quicksort (most standard libraries use a hybrid of it).</li>
+    <li>Tight memory and a guaranteed worst case: heapsort.</li>
+  </ul>
+</article>
+<script>
+(function () {
+  'use strict';
+  var log = document.getElementById('log'), inp = document.getElementById('in'), pr = document.getElementById('p');
+  var MAX = 800;
+  var S = {
+    tok: '', nick: '', key: '', sid: '', hub: '', me: {}, users: {}, rooms: {}, seen: {},
+    lines: [], target: '#general', dms: [], lastDM: '', es: null, beat: 0, on: false,
+    fatal: false, ask: '', hist: [], hpos: 0, fade: 0, focus: false, auto: false,
+    skew: 0, addr: [], peers: [], next: ''
+  };
+
+  function store(k, v) {
+    try {
+      if (v === undefined) return localStorage.getItem('nook.' + k);
+      if (v === null) localStorage.removeItem('nook.' + k); else localStorage.setItem('nook.' + k, v);
+    } catch (e) {}
+    return null;
+  }
+  function rnd() {
+    var a = new Uint8Array(16), s = '';
+    window.crypto.getRandomValues(a);
+    for (var i = 0; i < a.length; i++) s += ('0' + a[i].toString(16)).slice(-2);
+    return s;
+  }
+  function enc(s) { return encodeURIComponent(s); }
+
+  S.tok = store('tok') || rnd(); store('tok', S.tok);
+  var q = {};
+  location.search.replace(/^\?/, '').split('&').forEach(function (kv) {
+    if (!kv) return;
+    var i = kv.indexOf('='), k = i < 0 ? kv : kv.slice(0, i), v = i < 0 ? '' : kv.slice(i + 1);
+    try { q[decodeURIComponent(k)] = decodeURIComponent(v.replace(/\+/g, ' ')); } catch (e) {}
+  });
+  if (q.n) store('nick', q.n);
+  if (q.k) store('key', q.k);
+  S.nick = store('nick') || '';
+  S.key = store('key') || '';
+  S.auto = store('auto') === '1';
+  if (location.search) { try { history.replaceState(null, '', location.pathname); } catch (e) {} }
+
+  // ---- drawing ----
+  function pad(s, n) { while (s.length < n) s += ' '; return s; }
+  function two(n) { return (n < 10 ? '0' : '') + n; }
+  function hhmm(ts) { var d = new Date(ts); return two(d.getHours()) + ':' + two(d.getMinutes()); }
+  function label(key) {
+    if (key && key.charAt(0) === '@') { var u = S.users[key.slice(1)]; return '@' + (u ? u.nick : '?'); }
+    return key;
+  }
+  function visible(l) {
+    if (S.focus && !l.sys && l.key !== S.target) return false;
+    if (S.fade && Date.now() - l.ts > S.fade * 1000) return false;
+    return true;
+  }
+  function row(l) {
+    var d = document.createElement('div'), h = document.createElement('span'), t = document.createElement('span');
+    var other = !l.sys && l.key !== S.target;
+    d.className = 'l' + (l.sys ? ' s' : other ? ' o' : '');
+    h.className = 'h'; t.className = 't';
+    h.textContent = l.sys ? hhmm(l.ts) + '  --' : hhmm(l.ts) + '  ' + (other ? label(l.key) + ' ' : '') + pad(l.nick, 8);
+    t.textContent = l.text;
+    d.appendChild(h); d.appendChild(t);
+    return d;
+  }
+  function nearBottom() { return log.scrollHeight - log.scrollTop - log.clientHeight < 40; }
+  function render() {
+    var stick = nearBottom(), f = document.createDocumentFragment();
+    for (var i = 0; i < S.lines.length; i++) if (visible(S.lines[i])) f.appendChild(row(S.lines[i]));
+    log.textContent = '';
+    log.appendChild(f);
+    if (stick) log.scrollTop = log.scrollHeight;
+    prompt();
+  }
+  // add keeps lines in time order; returns true if the line went at the end.
+  function add(l) {
+    var i = S.lines.length;
+    while (i > 0 && S.lines[i - 1].ts > l.ts) i--;
+    S.lines.splice(i, 0, l);
+    if (S.lines.length > MAX + 100) { S.lines.splice(0, S.lines.length - MAX); return false; }
+    return i === S.lines.length - 1;
+  }
+  function show(l, atEnd) {
+    if (!atEnd) { render(); return; }
+    if (!visible(l)) return;
+    var stick = nearBottom();
+    log.appendChild(row(l));
+    if (stick) log.scrollTop = log.scrollHeight;
+  }
+  function sys(text) { var l = { sys: true, ts: Date.now(), text: text, key: '' }; show(l, add(l)); }
+  function prompt() {
+    var p;
+    if (S.ask === 'nick') p = 'your name';
+    else if (S.ask === 'key') p = 'room key';
+    else {
+      p = S.target ? label(S.target) : '(no room)';
+      if (!S.on) p = (S.fatal ? '(stopped) ' : '(offline) ') + p;
+    }
+    pr.textContent = p + '> ';
+  }
+
+  // ---- state ----
+  function touchDM(id) { if (S.dms.indexOf(id) < 0) S.dms.push(id); }
+  function inRoom(name) { var r = S.rooms[name]; return !!(r && r.members && r.members.indexOf(S.me.id) >= 0); }
+  function myRooms() {
+    var out = [];
+    for (var n in S.rooms) if (inRoom(n)) out.push(n);
+    out.sort(function (a, b) { return a === 'general' ? -1 : b === 'general' ? 1 : a < b ? -1 : a > b ? 1 : 0; });
+    return out.map(function (n) { return '#' + n; });
+  }
+  function fixTarget() {
+    var t = S.target;
+    if (t.charAt(0) === '#' && inRoom(t.slice(1))) return;
+    if (t.charAt(0) === '@' && S.users[t.slice(1)]) return;
+    var r = myRooms(); S.target = r.length ? r[0] : '';
+  }
+  function addMsg(m, batch) {
+    if (S.seen[m.id]) return;
+    S.seen[m.id] = 1;
+    var l = { id: m.id, ts: m.ts + S.skew, from: m.from, nick: m.nick, text: m.text };
+    if (m.room) l.key = '#' + m.room;
+    else {
+      var peer = m.to === S.me.id ? m.from : m.to;
+      l.key = '@' + peer; touchDM(peer);
+      if (m.from !== S.me.id) S.lastDM = m.from;
+    }
+    var atEnd = add(l);
+    if (!batch) show(l, atEnd);
+  }
+  function online() { var n = 0; for (var id in S.users) if (S.users[id].on) n++; return n; }
+  function nickOf(id) { var u = S.users[id]; return u ? u.nick : '?'; }
+
+  function handle(ev) {
+    switch (ev.t) {
+      case 'hello':
+        var fresh = ev.hub !== S.hub;
+        if (fresh) { S.seen = {}; S.hub = ev.hub; }
+        S.sid = ev.sid; S.me = ev.me || {}; S.skew = ev.now ? Date.now() - ev.now : 0;
+        if (S.me.nick) { S.nick = S.me.nick; store('nick', S.nick); }
+        S.users = {}; (ev.users || []).forEach(function (u) { S.users[u.id] = u; });
+        S.rooms = {}; (ev.rooms || []).forEach(function (r) { S.rooms[r.name] = r; });
+        S.addr = ev.addr || []; S.peers = ev.peers || [];
+        (ev.hist || []).forEach(function (m) { addMsg(m, true); });
+        fixTarget();
+        S.on = true; S.next = '';
+        if (fresh) sys('connected · ' + online() + ' online · /help');
+        render();
+        break;
+      case 'msg': if (ev.msg) addMsg(ev.msg, false); break;
+      case 'hist': (ev.hist || []).forEach(function (m) { addMsg(m, true); }); render(); break;
+      case 'user':
+        var u = ev.user; if (!u) break;
+        var old = S.users[u.id];
+        if (old && old.nick !== u.nick && u.id !== S.me.id) sys(old.nick + ' is now ' + u.nick);
+        S.users[u.id] = u;
+        if (u.id === S.me.id) { S.me = u; S.nick = u.nick; store('nick', u.nick); }
+        prompt();
+        break;
+      case 'room':
+        var r = ev.room; if (!r) break;
+        var before = S.rooms[r.name], was = inRoom(r.name);
+        if (r.gone) delete S.rooms[r.name]; else S.rooms[r.name] = r;
+        var now = inRoom(r.name);
+        if (r.name !== 'general' && was && now && before) {
+          r.members.forEach(function (id) { if (id !== S.me.id && before.members.indexOf(id) < 0) sys(nickOf(id) + ' joined #' + r.name); });
+          before.members.forEach(function (id) { if (id !== S.me.id && r.members.indexOf(id) < 0) sys(nickOf(id) + ' left #' + r.name); });
+        }
+        if (was !== now) { fixTarget(); render(); }
+        break;
+      case 'moved': sys('the room moved to another host · following'); go(ev.url); break;
+      case 'bye':
+        sys('the host left · looking for the new one');
+        S.on = false; S.next = ev.url || ''; prompt(); hunt();
+        break;
+      case 'err':
+        S.fatal = true; S.on = false; closeES(); sys(ev.text);
+        if (/key/.test(ev.text)) { S.ask = 'key'; inp.type = 'password'; }
+        prompt();
+        break;
+      case 'sys': sys(ev.text); break;
+    }
+  }
+
+  // ---- connection ----
+  function closeES() { if (S.es) { S.es.close(); S.es = null; } }
+  function connect() {
+    closeES();
+    if (S.fatal || !S.nick) return;
+    var u = '/events?c=web&tok=' + enc(S.tok) + '&nick=' + enc(S.nick) + (S.key ? '&key=' + enc(S.key) : '');
+    var es = new EventSource(u);
+    S.es = es; S.beat = Date.now();
+    es.onmessage = function (e) {
+      if (S.es !== es) return;
+      S.beat = Date.now();
+      var ev; try { ev = JSON.parse(e.data); } catch (x) { return; }
+      handle(ev);
+    };
+    es.onopen = function () { S.beat = Date.now(); };
+    es.onerror = function () {
+      if (S.es !== es) return;
+      if (S.on) { S.on = false; prompt(); }
+      if (es.readyState === 2) setTimeout(function () { if (S.es === es) connect(); }, 2000);
+      hunt();
+    };
+  }
+  // A browser can't search the network itself, so while the host is gone we
+  // knock on the computers that might take over and follow the first one.
+  var hunting = false;
+  function hunt() {
+    if (hunting) return;
+    hunting = true;
+    setTimeout(function step() {
+      if (S.on || S.fatal) { hunting = false; return; }
+      var c = [];
+      [S.next].concat(S.peers, S.addr).forEach(function (b) { if (b && c.indexOf(b) < 0 && b !== location.origin) c.push(b); });
+      var done = false;
+      c.forEach(function (b) {
+        probe(b, function (info) {
+          if (done || S.on || !info || !info.id || info.id === S.hub) return;
+          done = true; go(b);
+        });
+      });
+      setTimeout(step, 3000);
+    }, 1500);
+  }
+  function probe(base, cb) {
+    var ctl = window.AbortController ? new AbortController() : null;
+    var t = setTimeout(function () { if (ctl) ctl.abort(); }, 1500);
+    fetch(base + '/ping', { cache: 'no-store', signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { clearTimeout(t); cb(j); }, function () { clearTimeout(t); cb(null); });
+  }
+  function go(base) {
+    if (!base) return;
+    location.href = base + '/?n=' + enc(S.nick) + (S.key ? '&k=' + enc(S.key) : '');
+  }
+  setInterval(function () { // the hub pings every 15s; silence means it's gone
+    if (S.es && S.on && Date.now() - S.beat > 40000) { S.on = false; prompt(); connect(); hunt(); }
+  }, 5000);
+  setInterval(function () { if (S.fade) render(); }, 1000);
+
+  function api(body, done) {
+    body.sid = S.sid;
+    fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.ok) { sys(j.err || 'failed'); if (j.err === 'not connected') connect(); return; }
+        if (done) done(j);
+      }, function () { sys('not sent · connection problem'); });
+  }
+
+  // ---- commands ----
+  function findUser(name) {
+    name = name.toLowerCase();
+    var pre = [];
+    for (var id in S.users) {
+      var n = S.users[id].nick.toLowerCase();
+      if (n === name) return S.users[id];
+      if (n.indexOf(name) === 0) pre.push(S.users[id]);
+    }
+    return pre.length === 1 ? pre[0] : null;
+  }
+  function say(to, text) {
+    to = to || S.target;
+    if (!to) return sys("you're not in a room · /join #name");
+    if (!S.on) return sys('offline · not sent');
+    api({ op: 'say', to: to, text: text });
+  }
+  function cleanRoom(s) { return s.trim().toLowerCase().replace(/^#+/, '').replace(/[^a-z0-9_-]/g, '').slice(0, 24); }
+  function input(line) {
+    line = line.trim();
+    if (!line) return;
+    if (line.slice(0, 2) === '//') return say('', line.slice(1));
+    if (line.charAt(0) !== '/') return say('', line);
+    var sp = line.indexOf(' '), cmd = (sp < 0 ? line.slice(1) : line.slice(1, sp)).toLowerCase(), arg = sp < 0 ? '' : line.slice(sp + 1).trim();
+    var name, u;
+    switch (cmd) {
+      case 'join': case 'j':
+        name = cleanRoom(arg);
+        if (!name) return sys('usage: /join #room');
+        if (inRoom(name)) { S.target = '#' + name; return render(); }
+        return api({ op: 'join', arg: name }, function (j) {
+          var r = S.rooms[j.room] || (S.rooms[j.room] = { name: j.room, members: [] });
+          if (r.members.indexOf(S.me.id) < 0) r.members.push(S.me.id);
+          S.target = '#' + j.room; render();
+        });
+      case 'leave': case 'part':
+        name = cleanRoom(arg) || (S.target.charAt(0) === '#' ? S.target.slice(1) : '');
+        if (!name) return sys('usage: /leave #room');
+        return api({ op: 'leave', arg: name }, function (j) {
+          var r = S.rooms[j.room];
+          if (r) r.members = r.members.filter(function (id) { return id !== S.me.id; });
+          fixTarget(); sys('left #' + j.room); render();
+        });
+      case 'dm': case 'msg': case 'm': case 'w': case 'query':
+        sp = arg.indexOf(' ');
+        var who = (sp < 0 ? arg : arg.slice(0, sp)).replace(/^@/, ''), text = sp < 0 ? '' : arg.slice(sp + 1).trim();
+        if (!who) return sys('usage: /dm name [message]');
+        u = findUser(who);
+        if (!u) return sys('no one called ' + who + ' · /who');
+        S.target = '@' + u.id; touchDM(u.id); render();
+        if (text) say(S.target, text);
+        return;
+      case 'r': case 'reply':
+        if (!S.lastDM) return sys('no one has messaged you yet');
+        if (!arg) { S.target = '@' + S.lastDM; return render(); }
+        return say('@' + S.lastDM, arg);
+      case 'nick': case 'name':
+        name = arg.replace(/^@/, '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 16);
+        if (!name) return sys('usage: /nick name');
+        return api({ op: 'nick', arg: name }, function (j) { S.nick = j.nick; store('nick', j.nick); sys('you are now ' + j.nick); });
+      case 'who': case 'users': case 'online':
+        name = cleanRoom(arg);
+        var r2 = name ? S.rooms[name] : null;
+        if (name && !r2) return sys('no room #' + name);
+        var list = [];
+        for (var id in S.users) {
+          u = S.users[id];
+          if (!u.on || (r2 && r2.members.indexOf(id) < 0)) continue;
+          list.push(u.nick + (id === S.me.id ? ' (you)' : ''));
+        }
+        list.sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
+        return sys((r2 ? '#' + name : 'online') + ' (' + list.length + '): ' + list.join(', '));
+      case 'rooms': case 'list':
+        var parts = [];
+        for (var n in S.rooms) {
+          var on = S.rooms[n].members.filter(function (id) { return S.users[id] && S.users[id].on; }).length;
+          parts.push('#' + n + ' ' + on + (inRoom(n) ? '*' : ''));
+        }
+        parts.sort();
+        return sys("rooms (* = you're in it): " + parts.join(' · ') + ' · /join #name');
+      case 'info':
+        return sys('connected to ' + location.origin + (S.addr.length ? ' · share: ' + S.addr.join('  ') : '') + ' · app: ' + location.origin + '/get');
+      case 'dim': case 'ghost': document.body.classList.toggle('g'); return;
+      case 'fade':
+        S.fade = (arg === 'off' || arg === '0') ? 0 : (parseInt(arg, 10) || 30);
+        sys(S.fade ? 'messages now fade after ' + S.fade + 's · /fade off' : 'fade off'); return render();
+      case 'focus':
+        S.focus = !S.focus;
+        sys(S.focus ? "showing only the chat you're in (Tab to switch)" : 'showing every chat'); return render();
+      case 'autohide':
+        S.auto = !S.auto; store('auto', S.auto ? '1' : null);
+        return sys(S.auto ? 'the page now hides itself when you switch away' : 'autohide off');
+      case 'clear': case 'cls': S.lines = []; return render();
+      case 'hide': return decoy(true);
+      case 'key':
+        S.key = arg; store('key', arg || null); S.fatal = false; sys('key set · reconnecting'); return connect();
+      case 'quit': case 'q': case 'exit': closeES(); S.on = false; S.fatal = true; prompt(); return sys('disconnected · reload the page to come back');
+      case 'help': case 'h': case '?':
+        sys('keys: Esc hide/unhide · Tab next chat · Up/Down history · Ctrl+W closes the tab, Ctrl+Shift+T brings it back');
+        sys('/join #room · /leave · /dm name [text] · /r text · /nick name · /who · /rooms · /info');
+        return sys('/dim faint text · /fade 30 · /focus · /autohide · /clear · /key word');
+      default: return sys('unknown command /' + cmd + ' · /help');
+    }
+  }
+  function cycle(dir) {
+    var t = myRooms().concat(S.dms.map(function (id) { return '@' + id; }));
+    if (!t.length) return;
+    var i = Math.max(0, t.indexOf(S.target));
+    S.target = t[(i + dir + t.length) % t.length];
+    render();
+  }
+
+  // ---- keys ----
+  function decoy(on) {
+    document.body.classList.toggle('dec', on);
+    document.title = on ? 'Sorting algorithms - notes' : 'notes';
+    if (on) inp.blur(); else inp.focus();
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' || e.keyCode === 27) { e.preventDefault(); decoy(!document.body.classList.contains('dec')); }
+  });
+  window.addEventListener('blur', function () { if (S.auto) decoy(true); });
+  inp.addEventListener('keydown', function (e) {
+    if (e.isComposing || e.keyCode === 229) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      var v = inp.value; inp.value = '';
+      if (S.ask) return answer(v);
+      if (v.trim() && S.hist[S.hist.length - 1] !== v) S.hist.push(v);
+      if (S.hist.length > 100) S.hist.shift();
+      S.hpos = S.hist.length;
+      input(v);
+    } else if (e.key === 'Tab') {
+      e.preventDefault(); cycle(e.shiftKey ? -1 : 1);
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      if (!S.hist.length) return;
+      e.preventDefault();
+      S.hpos = Math.max(0, Math.min(S.hist.length, S.hpos + (e.key === 'ArrowUp' ? -1 : 1)));
+      inp.value = S.hist[S.hpos] || '';
+    }
+  });
+  function answer(v) {
+    v = v.trim();
+    if (S.ask === 'nick') {
+      var n = v.replace(/^@/, '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 16);
+      if (!n) return sys('letters and digits only, please');
+      S.nick = n; store('nick', n); S.ask = ''; prompt(); connect();
+    } else if (S.ask === 'key') {
+      S.key = v; store('key', v || null); S.ask = ''; inp.type = 'text'; S.fatal = false; prompt(); connect();
+    }
+  }
+  document.addEventListener('click', function (e) {
+    if (!document.body.classList.contains('dec') && !window.getSelection().toString()) inp.focus();
+  });
+
+  if (!S.nick) { S.ask = 'nick'; sys('type your name and press Enter'); }
+  prompt();
+  connect();
+  inp.focus();
+})();
+</script>
+</body>
+</html>
