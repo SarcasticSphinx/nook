@@ -168,8 +168,10 @@ button at the top right or `/ui chat` and `/ui term`:
 - **Terminal**: the same plain text look as the app.
 
 In both, Tab switches chats (or finishes a `/command`), and Esc swaps the
-chat for a little runner game: a pixel cat hopping over boxes (Space to
-jump, Down to duck; on a phone, tap to jump and hold to go back). The tab
+chat for a little runner game: a pixel cat hopping over boxes and ducking
+under paper planes. Hold Space longer to jump higher, Down ducks, the
+score blinks at every 100, and it keeps your best. On a phone, tap to jump
+and hold to go back. The tab
 is called "Runner" and has no icon. The commands are the same as in the app, `/autohide` hides
 the chat whenever you click away, and Ctrl+W closes the tab while
 Ctrl+Shift+T brings it straight back, still signed in.

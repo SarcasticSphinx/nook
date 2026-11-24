@@ -1523,12 +1523,14 @@ body.dec{background:var(--gbg,#f7f7f7)}
           if (rows[r].charAt(c) === 'x') cx.fillRect(Math.round(x + c * P), Math.round(y + r * P), P, P);
     }
     function reset() {
-      g.play = true; g.over = false; g.y = 0; g.vy = 0; g.duck = false; g.speed = 330; g.dist = 0; g.obs = []; g.gap = 420;
+      g.play = true; g.over = false; g.y = 0; g.vy = 0; g.duck = false; g.speed = 330; g.dist = 0; g.obs = []; g.gap = 420; g.flash = 0;
     }
     function jump() {
+      if (g.over && Date.now() - g.overAt < 600) return; // no restarting by accident
       if (!g.play || g.over) { reset(); return; }
-      if (g.y === 0) g.vy = -760;
+      if (g.y === 0) g.vy = -800;
     }
+    function letGo() { if (g.vy < -330) g.vy = -330; } // a short tap is a short hop
     function spawn() {
       var t = Math.random(), o;
       if (g.speed > 470 && t < 0.25) {
@@ -1539,7 +1541,7 @@ body.dec{background:var(--gbg,#f7f7f7)}
       }
       o.x = W + 20;
       g.obs.push(o);
-      g.gap = 260 + Math.random() * 380 + g.speed * 0.5;
+      g.gap = Math.max(240, g.speed * 0.62) + Math.random() * 360; // always room to land and jump again
     }
     function hit(o) {
       var cw = (g.duck ? 22 : 20) * P, ch = (g.duck ? 7 : 12) * P;
@@ -1549,8 +1551,11 @@ body.dec{background:var(--gbg,#f7f7f7)}
     }
     function step(dt) {
       if (!g.play || g.over) return;
-      g.speed = Math.min(820, g.speed + 9 * dt);
+      g.speed = Math.min(840, g.speed + 9 * dt);
+      var before = Math.floor(g.dist / 1200);
       g.dist += g.speed * dt;
+      if (Math.floor(g.dist / 1200) > before) g.flash = 0.9; // every 100 points the score blinks
+      if (g.flash > 0) g.flash -= dt;
       g.vy += (g.duck && g.y > 0 ? 5200 : 2500) * dt;
       g.y = Math.max(0, g.y - g.vy * dt);
       if (g.y === 0 && g.vy > 0) g.vy = 0;
@@ -1561,7 +1566,7 @@ body.dec{background:var(--gbg,#f7f7f7)}
         o.x -= g.speed * dt * (o.kind === 'plane' ? 1.12 : 1);
         if (o.x + o.w < -20) g.obs.splice(i, 1);
         else if (hit(o)) {
-          g.over = true;
+          g.over = true; g.overAt = Date.now(); g.flash = 0;
           var sc = Math.floor(g.dist / 12);
           if (sc > g.hi) { g.hi = sc; store('hi', String(sc)); }
         }
@@ -1593,7 +1598,9 @@ body.dec{background:var(--gbg,#f7f7f7)}
       cx.fillStyle = inkc;
       cx.font = '600 15px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
       cx.textAlign = 'right';
-      cx.fillText((g.hi ? 'BEST ' + pad5(g.hi) + '   ' : '') + pad5(Math.floor(g.dist / 12)), W - 24, 36);
+      var shown = g.flash > 0 ? Math.floor(g.dist / 1200) * 100 : Math.floor(g.dist / 12);
+      var blink = g.flash > 0 && Math.floor(g.flash * 7) % 2 === 1;
+      cx.fillText((g.hi ? 'BEST ' + pad5(g.hi) + '   ' : '') + (blink ? '     ' : pad5(shown)), W - 24, 36);
       cx.textAlign = 'center';
       if (!g.play) cx.fillText('press space to play', W / 2, gy + 60);
       else if (g.over) { cx.font = '700 18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace'; cx.fillText('oops', W / 2, gy - 150); cx.font = '600 14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace'; cx.fillText('space to try again', W / 2, gy - 124); }
@@ -1622,10 +1629,15 @@ body.dec{background:var(--gbg,#f7f7f7)}
       if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); jump(); }
       else if (e.key === 'ArrowDown') { e.preventDefault(); g.duck = true; }
     });
-    document.addEventListener('keyup', function (e) { if (g.on && e.key === 'ArrowDown') g.duck = false; });
+    document.addEventListener('keyup', function (e) {
+      if (!g.on) return;
+      if (e.key === 'ArrowDown') g.duck = false;
+      if (e.key === ' ' || e.key === 'ArrowUp') letGo();
+    });
+    document.addEventListener('visibilitychange', function () { last = 0; }); // no jump in time after the tab comes back
     var hold = 0; // phones have no Esc: holding a finger on the game goes back
     cv.addEventListener('pointerdown', function (e) { e.preventDefault(); jump(); clearTimeout(hold); hold = setTimeout(function () { decoy(false); }, 900); });
-    cv.addEventListener('pointerup', function () { clearTimeout(hold); });
+    cv.addEventListener('pointerup', function () { clearTimeout(hold); letGo(); });
     cv.addEventListener('pointercancel', function () { clearTimeout(hold); });
     return { show: show };
   })();
