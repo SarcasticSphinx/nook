@@ -42,6 +42,7 @@ const usage = `nook: chat with the people around you. No internet or Wi-Fi neede
   nook serve           Wi-Fi: host only, without the chat screen
   nook join ADDRESS    Wi-Fi: join a host directly, e.g. nook join 192.168.1.20
   nook scan            Wi-Fi: search harder when automatic finding is blocked
+  nook update          get the newest version from GitHub (needs the internet)
 
 options
   -n, --name NAME      your name (default: your login name)
@@ -157,8 +158,10 @@ func parseArgs(in []string) (args, error) {
 		return a, nil
 	}
 	switch pos[0] {
-	case "host", "serve", "scan", "help", "version", "check", "wifi":
+	case "host", "serve", "scan", "help", "version", "check", "wifi", "update":
 		a.cmd = pos[0]
+	case "upgrade":
+		a.cmd = "update"
 	case "bt", "bluetooth":
 		a.cmd = "bt"
 	case "lan":
@@ -234,6 +237,9 @@ func main() {
 		return
 	case "serve":
 		serve(a)
+		return
+	case "update", "upgrade":
+		runUpdate()
 		return
 	}
 	if a.cmd == "bt" || a.cmd == "check" {

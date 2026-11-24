@@ -53,6 +53,11 @@ mode, everyone can install from you. To remove it:
 `curl -fsSL https://github.com/SarcasticSphinx/nook/releases/latest/download/install.sh | sh -s uninstall`
 (from a nook folder: `sh install.sh uninstall`; Windows: `install.cmd uninstall`).
 
+To update, run `nook update`. It checks GitHub for a newer release, downloads
+the build for your computer, checks it against the release's `SHA256SUMS`,
+and swaps it in. It needs the internet; without it, install again from a
+newer nook folder or Wi-Fi host.
+
 ## Quick start
 
 1. **Get nook onto every laptop** with one of the lines above, or pass a

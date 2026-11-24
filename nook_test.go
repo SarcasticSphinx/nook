@@ -519,3 +519,29 @@ func TestInstallers(t *testing.T) {
 		t.Fatalf("auto download for an unknown system: %d", r.StatusCode)
 	}
 }
+
+func TestUpdateHelpers(t *testing.T) {
+	if !newerVersion("v0.4.1", "0.4.0") || !newerVersion("v1.0", "0.9.9") || newerVersion("v0.4.0", "0.4.0") || newerVersion("v0.3.9", "0.4.0") {
+		t.Fatal("newerVersion")
+	}
+	for _, c := range [][4]string{
+		{"darwin", "arm64", "go1.27.4", "nook-mac"},
+		{"darwin", "amd64", "go1.20.14", "nook-mac-legacy"},
+		{"windows", "amd64", "go1.27.4", "nook-win-x64.exe"},
+		{"windows", "386", "go1.20.14", "nook-win7-x86.exe"},
+		{"windows", "arm64", "go1.27.4", "nook-win-arm64.exe"},
+		{"linux", "amd64", "go1.27.4", "nook-linux-x64"},
+		{"linux", "arm64", "go1.27.4", ""},
+	} {
+		if got := updateAsset(c[0], c[1], c[2]); got != c[3] {
+			t.Errorf("updateAsset(%s/%s %s) = %q, want %q", c[0], c[1], c[2], got, c[3])
+		}
+	}
+	sums := "abc  nook-mac\nDEF *nook-linux-x64\n"
+	if sumFor(sums, "nook-mac") != "abc" || sumFor(sums, "nook-linux-x64") != "def" || sumFor(sums, "nook-mac-legacy") != "" {
+		t.Fatal("sumFor")
+	}
+	if a, _ := parseArgs([]string{"upgrade"}); a.cmd != "update" {
+		t.Fatal("upgrade alias")
+	}
+}
