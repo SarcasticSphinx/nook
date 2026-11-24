@@ -18,13 +18,13 @@ import (
 // exactly as it was.
 
 type uiOpts struct {
-	Skin    string
-	Ghost   bool
-	All     bool // every chat mixed together (/all); normally one chat at a time
-	Wipe    bool
-	NoBar   bool // hide the chat bar
-	People  bool // show the people list
-	NoColor bool
+	Skin     string
+	Ghost    bool
+	All      bool // every chat mixed together (/all); normally one chat at a time
+	Wipe     bool
+	NoBar    bool // hide the chat bar
+	NoPeople bool // hide the people list (shown by default when there's room)
+	NoColor  bool
 }
 
 var (
@@ -209,8 +209,8 @@ func (u *tui) key(ev *tcell.EventKey) {
 	switch k {
 	case tcell.KeyEnter:
 		u.submit()
-	case tcell.KeyTab: // completes a /command being typed; otherwise the next chat
-		if strings.HasPrefix(string(u.in), "/") {
+	case tcell.KeyTab: // completes a /command or an @name being typed; otherwise the next chat
+		if strings.HasPrefix(string(u.in), "/") || u.atWord() {
 			u.complete()
 		} else {
 			u.cycle(1)
@@ -418,7 +418,17 @@ func (u *tui) submit() {
 			u.o.Ghost = !u.o.Ghost
 			return
 		case "people", "panel":
-			u.o.People = !u.o.People
+			switch arg {
+			case "off", "hide", "no":
+				u.o.NoPeople = true
+			case "on", "show", "yes":
+				u.o.NoPeople = false
+			default:
+				u.o.NoPeople = !u.o.NoPeople
+			}
+			if u.o.NoPeople {
+				u.c.Sys("people list hidden · /people on to show it again")
+			}
 			return
 		case "bar", "tabs":
 			u.o.NoBar = !u.o.NoBar
@@ -484,7 +494,7 @@ func (u *tui) style(p part) tcell.Style {
 		switch p.kind {
 		case pText, pName:
 			return stText
-		case pMe, pDM, pNotice, pFile, pCmd, pHead:
+		case pMe, pDM, pNotice, pFile, pCmd, pHead, pMention:
 			return stText.Bold(true)
 		}
 		return stMeta
@@ -503,6 +513,8 @@ func (u *tui) style(p part) tcell.Style {
 		return stText.Foreground(tcell.PaletteColor(109))
 	case pHead:
 		return stText.Foreground(tcell.PaletteColor(180)).Bold(true)
+	case pMention:
+		return stText.Foreground(tcell.PaletteColor(meColor)).Bold(true).Underline(true)
 	case pRoom:
 		return stText.Foreground(tcell.PaletteColor(110))
 	case pDM:
@@ -581,6 +593,8 @@ func (u *tui) draw() {
 		where, who := "new in "+p.Key, " · "+v.Nicks[p.From]+": "
 		if strings.HasPrefix(p.Key, "@") {
 			where, who = "DM from "+v.Nicks[p.From], ": "
+		} else if p.Mention {
+			where = "@you in " + p.Key
 		}
 		text := p.Text
 		if p.File != nil {
@@ -593,8 +607,8 @@ func (u *tui) draw() {
 		u.put(x, bottom, w, hint, u.style(part{kind: pMeta}))
 	}
 	mw := w
-	if u.o.People && w >= 60 {
-		pw := 22
+	if !u.o.NoPeople && w >= 60 {
+		pw := peopleWidth(&v, w)
 		mw = w - pw - 1
 		u.drawPeople(&v, mw, top, w, bottom)
 	}
@@ -646,7 +660,9 @@ func (u *tui) drawBar(v *View, w, y int) {
 		}
 		x0 := x
 		x = u.put(x, y, maxX, " "+ch.Label+" ", st)
-		if ch.Unread > 0 {
+		if ch.Mentions > 0 {
+			x = u.put(x, y, maxX, "@"+strconv.Itoa(ch.Mentions), u.style(part{kind: pMention}))
+		} else if ch.Unread > 0 {
 			x = u.put(x, y, maxX, strconv.Itoa(ch.Unread), u.style(part{kind: pDM}))
 		}
 		u.tabs = append(u.tabs, tabHit{x0, x, ch.Key})
@@ -657,16 +673,48 @@ func (u *tui) drawBar(v *View, w, y int) {
 	}
 }
 
+// peopleWidth: wide enough for most names (longer ones wrap), never more
+// than a third of the screen.
+func peopleWidth(v *View, w int) int {
+	pw := 18
+	for _, p := range v.People {
+		n := uniseg.StringWidth(p.Nick) + 6
+		if p.ID == v.MeID {
+			n += 6 // " (you)"
+		}
+		if n > pw {
+			pw = n
+		}
+	}
+	return imin(pw, imax(18, w/3))
+}
+
 // drawPeople lists everyone on the right: who is here, then who has gone.
+// A long name wraps onto the next row instead of being cut off, and the
+// last row says how to hide the list.
 func (u *tui) drawPeople(v *View, x0, top, w, bottom int) {
 	meta := u.style(part{kind: pMeta})
 	for y := top; y < bottom; y++ {
 		u.s.SetContent(x0, y, '|', nil, meta)
 	}
+	end := bottom
+	hint := "/people off: hide"
+	if bottom-top >= 6 {
+		end = bottom - 1
+		u.put(x0+2, bottom-1, w, hint, meta.Dim(true))
+	}
 	y := top
-	line := func(text string, st tcell.Style) {
-		if y < bottom {
-			u.put(x0+2, y, w, text, st)
+	avail := imax(4, w-x0-4) // after "| " and "* "
+	entry := func(mark, text string, st tcell.Style) {
+		for i, r := range wrapWords(text, avail) {
+			if y >= end {
+				return
+			}
+			m := "  "
+			if i == 0 {
+				m = mark
+			}
+			u.put(x0+2, y, w, m+r, st)
 			y++
 		}
 	}
@@ -676,18 +724,58 @@ func (u *tui) drawPeople(v *View, x0, top, w, bottom int) {
 			here++
 		}
 	}
-	line(fmt.Sprintf("people · %d here", here), u.style(part{kind: pText}))
+	entry("", fmt.Sprintf("people · %d here", here), u.style(part{kind: pText}))
 	for _, p := range v.People {
 		name := p.Nick
 		if p.ID == v.MeID {
 			name += " (you)"
 		}
 		if p.On {
-			line("* "+name, u.style(part{kind: pName, who: p.ID}))
+			entry("* ", name, u.style(part{kind: pName, who: p.ID}))
 		} else {
-			line("  "+name, meta)
+			entry("  ", name, meta)
 		}
 	}
+}
+
+// wrapWords breaks text into rows of at most n columns, at spaces where it
+// can and inside a word only when the word alone is too long.
+func wrapWords(text string, n int) []string {
+	var rows []string
+	cur := ""
+	for _, word := range strings.Fields(text) {
+		for uniseg.StringWidth(word) > n { // a name longer than the row
+			if cur != "" {
+				rows, cur = append(rows, cur), ""
+			}
+			cut, w := 0, 0
+			g := uniseg.NewGraphemes(word)
+			for g.Next() {
+				if w+g.Width() > n {
+					break
+				}
+				w += g.Width()
+				_, cut = g.Positions()
+			}
+			if cut == 0 {
+				cut = len(word)
+			}
+			rows, word = append(rows, word[:cut]), word[cut:]
+		}
+		switch {
+		case word == "":
+		case cur == "":
+			cur = word
+		case uniseg.StringWidth(cur+" "+word) <= n:
+			cur += " " + word
+		default:
+			rows, cur = append(rows, cur), word
+		}
+	}
+	if cur != "" || len(rows) == 0 {
+		rows = append(rows, cur)
+	}
+	return rows
 }
 
 // layout wraps the newest lines until it has at least `need` rows. atTop
@@ -763,6 +851,15 @@ func (u *tui) wrap(p para, width int) []row {
 	}
 	var toks []tok
 	indent := 0
+	// continuation rows line up under where the message itself starts:
+	// the first text part, or (for lines without one) the last part
+	lead := len(p.parts) - 1
+	for pi, pt := range p.parts {
+		if pt.kind == pText || pt.kind == pFaint || pt.kind == pFile {
+			lead = pi
+			break
+		}
+	}
 	for pi, pt := range p.parts {
 		st := u.style(pt)
 		g := uniseg.NewGraphemes(pt.text)
@@ -778,7 +875,7 @@ func (u *tui) wrap(p para, width int) []row {
 			t := &toks[len(toks)-1]
 			t.cells = append(t.cells, cell{r: g.Runes(), w: cw, st: st})
 			t.w += cw
-			if pi < len(p.parts)-1 {
+			if pi < lead {
 				indent += cw
 			}
 		}

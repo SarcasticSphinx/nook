@@ -106,7 +106,8 @@ needs two laptops: one computer can't link to itself.
 | `/r text` | reply to whoever messaged you last, without leaving the chat you're in |
 | `/join #room`, `/leave` | join or create a room, leave it (`#general` is everyone) |
 | `/who`, `/rooms` | everyone connected, who's away, and their rooms; all rooms |
-| `/people` | keep a list of everyone on the right side of the screen |
+| `/people off` | hide the list of everyone on the right (it's on by default when the window is wide enough; long names wrap onto a second row). `/people on` brings it back; `--no-people` starts without it. |
+| `@name` | mention someone, like Messenger or WhatsApp: type `@` and Tab finishes the name (`@everyone` for the whole room). It's highlighted for them, and if they're in another chat their bar shows `#general @1`. Just writing their name without `@` doesn't count. |
 | `/nick name` | change your name: everyone sees "rafi is now known as rafa", and your old messages show the new name |
 | `/send path` | share a file with the chat you're in. Or drag the file into the terminal window and press Enter. |
 | `/see 3` | look at file 3 without saving it. Text opens inside the window (`q` closes it, `g` saves it). Pictures and PDFs open in a real preview window: Quick Look on a Mac, the picture or PDF viewer on Windows and Linux. The copy it opens is a private temporary file, deleted when the window closes (Mac) or when nook quits. Where no preview window can open, pictures are drawn in the terminal instead. |
@@ -159,6 +160,8 @@ button at the top right or `/ui chat` and `/ui term`:
   name in its own colour; "rafi is typing"; picture previews; files by
   dragging them onto the page, pasting, or the paperclip, with an eye
   button to look at one (pictures, PDFs and text) without saving it.
+  Typing `@` lists the people in the chat to mention; mentions of you are
+  highlighted and counted under Mentions.
   Typing `/` lists the commands. Scrolling up fetches older messages. On a
   phone the chat list is its own screen and a chat slides in over it.
 - **Terminal**: the same plain text look as the app.

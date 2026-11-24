@@ -68,9 +68,11 @@ body.g #term,body.g #main{opacity:.3}
 .ib{width:40px;height:40px;border-radius:50%;display:inline-grid;place-items:center;color:var(--soft);background:var(--bg);box-shadow:var(--up-sm);transition:box-shadow .2s,color .2s,transform .15s var(--spring);flex:none}
 .ib:hover{color:var(--fg)}.ib:active{box-shadow:var(--in);transform:scale(.95)}
 .stop .sp{flex:1}
-.tabs{display:flex;margin:4px 18px 12px;padding:5px;border-radius:999px;box-shadow:var(--in)}
-.tab{position:relative;flex:1;height:38px;border-radius:999px;color:var(--mute);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px;transition:box-shadow .25s var(--ease),color .2s}
-.tab.on{color:var(--fg);background:var(--bg);box-shadow:var(--up-sm)}
+.tabs{position:relative;display:flex;margin:4px 18px 12px;padding:5px;border-radius:999px;box-shadow:var(--in)}
+.tabs .ind{position:absolute;top:5px;bottom:5px;left:0;width:0;border-radius:999px;background:var(--bg);box-shadow:var(--up-sm);transition:transform .5s cubic-bezier(.34,1.45,.5,1),width .5s cubic-bezier(.34,1.45,.5,1);pointer-events:none}
+.tab{position:relative;z-index:1;flex:1;height:38px;border-radius:999px;color:var(--mute);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px;transition:color .3s var(--ease),transform .15s var(--spring)}
+.tab.on{color:var(--fg)}
+.tab:active{transform:scale(.95)}
 .tab .cnt[hidden]{display:none}
 .tab .cnt{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--red);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;box-shadow:0 3px 8px var(--redglow);animation:popin .35s var(--spring)}
 .find{margin:0 18px 10px;display:flex;align-items:center;gap:8px;border-radius:999px;padding:0 16px;height:42px;color:var(--mute);box-shadow:var(--in)}
@@ -80,7 +82,14 @@ body.g #term,body.g #main{opacity:.3}
 .act span:last-child{max-width:58px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #chats{flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 14px 14px;min-height:0}
 .empty{padding:30px 10px;text-align:center;color:var(--mute);font-size:14px}
-.row{position:relative;display:flex;align-items:center;gap:14px;padding:12px 14px;margin:0 0 6px;border-radius:22px;cursor:pointer;transition:box-shadow .25s var(--ease),transform .2s var(--spring);user-select:none;animation:slide .3s var(--ease) both}
+.row{position:relative;display:flex;align-items:center;gap:14px;padding:12px 14px;margin:0 0 6px;border-radius:22px;cursor:pointer;transition:box-shadow .25s var(--ease),transform .2s var(--spring);user-select:none}
+#chats.out-l{animation:outL .14s ease-in both}#chats.out-r{animation:outR .14s ease-in both}
+#chats.in-l .row,#chats.in-l .empty{animation:inL .45s var(--spring) both}
+#chats.in-r .row,#chats.in-r .empty{animation:inR .45s var(--spring) both}
+@keyframes outL{to{opacity:0;transform:translateX(-22px)}}
+@keyframes outR{to{opacity:0;transform:translateX(22px)}}
+@keyframes inL{from{opacity:0;transform:translateX(-30px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes inR{from{opacity:0;transform:translateX(30px) scale(.98)}to{opacity:1;transform:none}}
 .row:hover{box-shadow:var(--up-sm)}.row:active{transform:scale(.985)}
 .row.on{box-shadow:var(--up)}
 .row .mid{flex:1;min-width:0}
@@ -125,6 +134,11 @@ header .tt{flex:1;min-width:0}
 .grp.me .b{background:var(--blue);color:var(--onblue);box-shadow:0 6px 16px var(--blueglow);transform-origin:bottom right}
 .me .b+.b{border-top-right-radius:8px}.me .b:not(:last-child){border-bottom-right-radius:8px}
 .b.new{animation:rise .38s var(--spring)}
+.b .at{font-weight:650;color:var(--blue)}
+.b .at.you{background:color-mix(in srgb,var(--blue) 15%,transparent);border-radius:7px;padding:0 4px}
+.grp.me .b .at{color:inherit;background:rgba(255,255,255,.2);border-radius:7px;padding:0 4px}
+.b.ment{box-shadow:var(--up-sm),inset 3px 0 0 var(--blue)}
+#tlog .mn .t{color:#4f7fc0}
 .b.emoji{background:none!important;box-shadow:none!important;font-size:38px;line-height:1.15;padding:2px 4px}
 .b.file{padding:8px;min-width:250px}
 .frow{display:flex;align-items:center;gap:12px;padding:4px 6px 4px 4px}
@@ -168,6 +182,7 @@ header .tt{flex:1;min-width:0}
 .sg code{font:13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--blue);min-width:110px}
 .sg span{color:var(--mute);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sg.sel{box-shadow:var(--in)}
+.sg .nm{font-weight:600;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #jump{position:absolute;right:28px;bottom:98px;width:42px;height:42px;border-radius:50%;background:var(--bg);box-shadow:var(--up);display:grid;place-items:center;color:var(--soft);transform:scale(0);transition:transform .25s var(--spring);z-index:3}
 #jump.on{transform:scale(1)}
 #drop{position:fixed;inset:22px;border:2px dashed var(--mute);border-radius:32px;background:color-mix(in srgb,var(--bg) 85%,transparent);display:none;place-items:center;font-size:19px;font-weight:600;color:var(--soft);z-index:30;pointer-events:none}
@@ -234,7 +249,7 @@ body.dec{background:var(--gbg,#f7f7f7)}
       <button class="ib" id="termBtn" title="Terminal look" aria-label="terminal look"></button>
       <button class="ib" id="newRoom" title="New room" aria-label="new room"></button>
     </div>
-    <div class="tabs" role="tablist">
+    <div class="tabs" role="tablist"><span class="ind"></span>
       <button class="tab on" data-tab="all" role="tab">All</button>
       <button class="tab" data-tab="unread" role="tab">Unread</button>
       <button class="tab" data-tab="mentions" role="tab">Mentions <span class="cnt" id="mentionCnt" hidden></span></button>
@@ -499,7 +514,12 @@ body.dec{background:var(--gbg,#f7f7f7)}
       }
       return fs;
     }
-    if ((m = /(^|\s)@?(\w+)$/.exec(v)) && v.charAt(0) !== '/') return [];
+    if (v.charAt(0) !== '/' && (m = /(^|\s)@([A-Za-z0-9_.-]*)$/.exec(v))) { // @: who to mention
+      var pre = v.slice(0, v.length - m[2].length - 1), q2 = m[2].toLowerCase(), at = [];
+      mentionable().forEach(function (u) { if (u.nick.toLowerCase().indexOf(q2) === 0) at.push(['@' + u.nick, pre + '@' + u.nick + ' ', u.on ? 'here' : 'away', u.id, u.nick]); });
+      if (S.target.charAt(0) === '#' && 'everyone'.indexOf(q2) === 0) at.push(['@everyone', pre + '@everyone ', 'everyone in ' + S.target]);
+      return at;
+    }
     return [];
   }
   // complete: Tab in a box. One match fills it in; several fill what they share.
@@ -545,6 +565,7 @@ body.dec{background:var(--gbg,#f7f7f7)}
       if (l.sys) d.className += l.notice ? ' n' : ' s';
       else if (l.key.charAt(0) === '@') d.className += ' dm';
       else if (l.key !== S.target) d.className += ' o';
+      if (!l.sys && !l.mine && mentions(l.text)) d.className += ' mn';
       d.appendChild(el('span', 'h', term.head(l)));
       var t = el('span', 't');
       if (l.file) {
@@ -626,7 +647,8 @@ body.dec{background:var(--gbg,#f7f7f7)}
       var b = el('div', 'b' + (anim ? ' new' : ''));
       b.title = hhmm(l.ts);
       if (!l.file) {
-        b.textContent = l.text;
+        richText(b, l.text);
+        if (!l.mine && mentions(l.text)) b.className += ' ment';
         if (EMOJI && EMOJI[0].test(l.text) && EMOJI[1].test(l.text)) b.className += ' emoji'; // just an emoji or two: big
         return b;
       }
@@ -713,15 +735,47 @@ body.dec{background:var(--gbg,#f7f7f7)}
   };
   function view() { return S.mode === 'term' ? term : chat; }
 
-  // mentions: a message that names you (rafi, @rafi)
+  // mentions: like Messenger and WhatsApp, a message that says @yourname
+  // (or @everyone in a room) counts; your name on its own doesn't
   function mentions(t) {
-    if (!S.nick || !t) return false;
+    if (!S.nick || !t || t.indexOf('@') < 0) return false;
     var n = S.nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp('(^|[^A-Za-z0-9_])@?' + n + '($|[^A-Za-z0-9_])', 'i').test(t);
+    return new RegExp('(^|[^A-Za-z0-9_.@-])@(' + n + '|everyone)(?![A-Za-z0-9_])', 'i').test(t);
+  }
+  function userByNick(n) {
+    n = n.toLowerCase();
+    for (var id in S.users) if (S.users[id].nick.toLowerCase() === n) return S.users[id];
+    return null;
+  }
+  // richText: the message, with @names of people here highlighted
+  function richText(b, text) {
+    var re = /@([A-Za-z0-9_.-]+)/g, last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > 0 && /[A-Za-z0-9_.-]/.test(text.charAt(m.index - 1))) continue; // an email address
+      var nm = m[1].replace(/[.-]+$/, ''), u = userByNick(nm), every = nm.toLowerCase() === 'everyone';
+      if (!u && !every) continue;
+      if (m.index > last) b.appendChild(document.createTextNode(text.slice(last, m.index)));
+      b.appendChild(el('span', 'at' + (every || u.id === S.me.id ? ' you' : ''), '@' + (u ? u.nick : nm)));
+      last = m.index + 1 + nm.length;
+      re.lastIndex = last;
+    }
+    if (last < text.length) b.appendChild(document.createTextNode(text.slice(last)));
+  }
+  // who @ can name here: the room's members (or the other person in a DM)
+  function mentionable() {
+    var k = S.target, out = [];
+    if (k.charAt(0) === '#' && S.rooms[k.slice(1)]) S.rooms[k.slice(1)].members.forEach(function (id) { if (id !== S.me.id && S.users[id]) out.push(S.users[id]); });
+    else if (k.charAt(0) === '@' && S.users[k.slice(1)]) out.push(S.users[k.slice(1)]);
+    return out.sort(function (a, b) { return (b.on - a.on) || (a.nick.toLowerCase() < b.nick.toLowerCase() ? -1 : 1); });
   }
   function side() {
-    var c = $('chats'), f = S.filter.toLowerCase();
+    var c = $('chats'), f = S.filter.toLowerCase(), anim = S.anim;
     c.textContent = '';
+    S.anim = '';
+    if (anim) {
+      c.classList.remove('in-l', 'in-r'); void c.offsetWidth; c.classList.add(anim);
+      clearTimeout(side.t); side.t = setTimeout(function () { c.classList.remove('in-l', 'in-r'); }, 900);
+    }
     var list = chats();
     list.sort(function (a, b) { // newest conversation first, #general on top
       if (a === '#general') return -1; if (b === '#general') return 1;
@@ -736,8 +790,9 @@ body.dec{background:var(--gbg,#f7f7f7)}
       if (f && name.toLowerCase().indexOf(f) < 0) return;
       if (S.tab === 'unread' && !S.unread[k]) return;
       if (S.tab === 'mentions' && !S.mention[k]) return;
-      shown++;
       var it = el('div', 'row' + (k === S.target ? ' on' : '') + (S.unread[k] ? ' un' : ''));
+      if (anim) it.style.animationDelay = Math.min(shown, 10) * 38 + 'ms';
+      shown++;
       var u = dm ? S.users[k.slice(1)] : null;
       it.appendChild(avatar(k.slice(1), name, !dm, null, u && u.on));
       var mid = el('div', 'mid'), last = lastOf(k), end = el('div', 'end');
@@ -797,7 +852,7 @@ body.dec{background:var(--gbg,#f7f7f7)}
   function setMode(m) {
     S.mode = m; store('mode', m);
     body.classList.remove('chat', 'term'); body.classList.add(m);
-    view().all(); side(); view().focus();
+    view().all(); side(); moveInd(true); view().focus();
   }
 
   // ---- typing ----
@@ -1150,6 +1205,7 @@ body.dec{background:var(--gbg,#f7f7f7)}
       '/who\twho is here, and their rooms',
       '/rooms\tevery room',
       '/nick name\tchange your name (everyone is told)',
+      '@name\tmention someone: type @ and pick; they get an @ badge',
       '## files',
       '/send\tshare a file (or drag, or paste one)',
       '/see n\tlook at a file without saving it',
@@ -1289,7 +1345,7 @@ body.dec{background:var(--gbg,#f7f7f7)}
     else if (e.key === 'Tab') {
       e.preventDefault();
       if (S.ask) return;
-      if (t.value.charAt(0) !== '/') return cycle(e.shiftKey ? -1 : 1);
+      if (t.value.charAt(0) !== '/' && !/(^|\s)@[A-Za-z0-9_.-]*$/.test(t.value)) return cycle(e.shiftKey ? -1 : 1);
       var nv = complete(t.value), s = suggest(t.value);
       if (nv !== t.value) { t.value = nv; $('tsug').textContent = ''; }
       else if (s.length > 1) $('tsug').textContent = s.map(function (x) { return x[0]; }).join('   ');
@@ -1318,7 +1374,9 @@ body.dec{background:var(--gbg,#f7f7f7)}
     box.textContent = '';
     cur.forEach(function (x, i) {
       var r = el('div', 'sg' + (i === sel ? ' sel' : ''));
-      r.appendChild(el('code', '', x[0])); r.appendChild(el('span', '', x[2] || ''));
+      if (x[3]) { r.appendChild(avatar(x[3], x[4], false, 'sm')); r.appendChild(el('span', 'nm', x[4])); }
+      else r.appendChild(el('code', '', x[0]));
+      r.appendChild(el('span', '', x[2] || ''));
       r.onmousedown = function (e) { e.preventDefault(); pick(i); };
       box.appendChild(r);
     });
@@ -1336,12 +1394,12 @@ body.dec{background:var(--gbg,#f7f7f7)}
       e.preventDefault(); sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + cur.length) % cur.length; showSugg();
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      if (cin.value.charAt(0) !== '/') cycle(e.shiftKey ? -1 : 1);
-      else if (open) pick(sel);
+      if (open) pick(sel);
+      else if (cin.value.charAt(0) !== '/') cycle(e.shiftKey ? -1 : 1);
       else { cin.value = complete(cin.value); grow(); showSugg(); }
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (open && cur[sel] && cur[sel][1].trim() !== cin.value.trim() && cin.value.indexOf(' ') < 0) return pick(sel);
+      if (open && cur[sel] && (cur[sel][3] !== undefined || cur[sel][0] === '@everyone' || (cur[sel][1].trim() !== cin.value.trim() && cin.value.indexOf(' ') < 0))) return pick(sel);
       send();
     }
   });
@@ -1354,13 +1412,34 @@ body.dec{background:var(--gbg,#f7f7f7)}
     $('jump').classList.toggle('on', msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight > 500);
   });
   $('jump').onclick = function () { msgs.scrollTo({ top: msgs.scrollHeight, behavior: 'smooth' }); };
+  var TABS = ['all', 'unread', 'mentions'], tabT = 0;
+  function moveInd(instant) {
+    var on = document.querySelector('.tab.on'), ind = document.querySelector('.tabs .ind');
+    if (!on || !ind || !on.offsetWidth) return;
+    if (instant) ind.style.transition = 'none';
+    ind.style.width = on.offsetWidth + 'px';
+    ind.style.transform = 'translateX(' + on.offsetLeft + 'px)';
+    if (instant) { void ind.offsetWidth; ind.style.transition = ''; }
+  }
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) {
     b.onclick = function () {
-      S.tab = b.getAttribute('data-tab');
+      var nt = b.getAttribute('data-tab');
+      if (nt === S.tab) return;
+      var dir = TABS.indexOf(nt) > TABS.indexOf(S.tab) ? 1 : -1, c = $('chats');
+      S.tab = nt;
       Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.toggle('on', x === b); });
-      side();
+      moveInd();
+      c.classList.remove('in-l', 'in-r', 'out-l', 'out-r'); void c.offsetWidth;
+      c.classList.add(dir > 0 ? 'out-l' : 'out-r'); // the old list slides away...
+      clearTimeout(tabT);
+      tabT = setTimeout(function () { // ...and the new one slides in, one row after another
+        c.classList.remove('out-l', 'out-r');
+        S.anim = dir > 0 ? 'in-r' : 'in-l';
+        side();
+      }, 140);
     };
   });
+  window.addEventListener('resize', function () { moveInd(true); });
   $('find').addEventListener('input', function () { S.filter = $('find').value; side(); });
 
   $('attachBtn').appendChild(icon('clip'));
@@ -1553,7 +1632,7 @@ body.dec{background:var(--gbg,#f7f7f7)}
 
   body.classList.remove('chat', 'term'); body.classList.add(S.mode);
   if (window.innerWidth > 760) body.classList.add('inchat');
-  view().all(); side();
+  view().all(); side(); moveInd(true);
   if (!S.nick) welcome(); else connect();
   view().focus();
 })();

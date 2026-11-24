@@ -261,3 +261,100 @@ func TestChatsStaySeparate(t *testing.T) {
 	s.InjectKey(tcell.KeyCtrlC, 0, tcell.ModNone)
 	<-done
 }
+
+// @mentions work like Messenger and WhatsApp: only "@name" (or @everyone)
+// counts, it's highlighted, the chat bar shows @1, and Tab finishes names.
+func TestMentions(t *testing.T) {
+	for _, c := range []struct {
+		text string
+		want bool
+	}{
+		{"@toha look", true},
+		{"hey @Toha!", true},
+		{"(@toha)", true},
+		{"@everyone lunch?", true},
+		{"toha look", false},        // the name alone isn't a mention
+		{"mail me@toha.com", false}, // an address
+		{"@tohax hi", false},        // someone else
+		{"@toha_2 hi", false},       // someone else
+		{"ask @toha.", true},        // end of a sentence
+	} {
+		if got := mentionsMe(c.text, "toha"); got != c.want {
+			t.Errorf("mentionsMe(%q) = %v", c.text, got)
+		}
+	}
+	v := &View{MeID: "me", Nicks: map[string]string{"me": "toha", "f": "mirza"}}
+	ps := mentionParts("hi @mirza and @toha, ok", pText, v)
+	var text strings.Builder
+	for _, p := range ps {
+		text.WriteString(p.text)
+	}
+	if text.String() != "hi @mirza and @toha, ok" || ps[0].kind != pText || ps[2].kind != pName || ps[4].kind != pMention {
+		t.Fatalf("parts %+v", ps)
+	}
+
+	h := testHub(t, "")
+	friend := testClient(t, h, "friend", "")
+	online(t, friend)
+	s := tcell.NewSimulationScreen("UTF-8")
+	s.SetSize(90, 24)
+	c := NewClient(ClientOpts{Mode: modeJoin, URL: localURL(h.Port()), Nick: "me", Token: deviceToken("mentions")})
+	done := make(chan error, 1)
+	go func() { done <- runTUI(c, uiOpts{Skin: "plain"}, s) }()
+	waitFor(t, "connected", func() bool { return c.State() == stOnline })
+	shows := func(what string) func() bool { return func() bool { return strings.Contains(screenText(s), what) } }
+
+	friend.Input("/dm me psst")
+	waitFor(t, "dm peek", shows("DM from friend"))
+	s.InjectKey(tcell.KeyTab, 0, tcell.ModNone)
+	waitFor(t, "in the DM", shows("DM friend> "))
+	friend.Input("/g")
+	waitFor(t, "friend in general", func() bool { return target(friend) == "#general" })
+	friend.Input("@me can you look at this?")
+	waitFor(t, "@1 on the bar", shows("#general @1"))
+	waitFor(t, "mention peek", shows("@you in #general"))
+	friend.Input("just chatting")
+	waitFor(t, "still @1", shows("#general @1"))
+
+	for _, r := range "hey @fr" {
+		s.InjectKey(tcell.KeyRune, r, tcell.ModNone)
+	}
+	s.InjectKey(tcell.KeyTab, 0, tcell.ModNone)
+	waitFor(t, "Tab finished the name", shows("DM friend> hey @friend "))
+	s.InjectKey(tcell.KeyCtrlC, 0, tcell.ModNone)
+	<-done
+}
+
+// The people list is on by default, wraps long names instead of cutting
+// them, and says how to hide it.
+func TestPeopleList(t *testing.T) {
+	if got := wrapWords("suhailahmedtoha (you)", 16); strings.Join(got, "|") != "suhailahmedtoha|(you)" {
+		t.Fatalf("wrap: %q", got)
+	}
+	if got := wrapWords("averyveryverylongname", 8); strings.Join(got, "|") != "averyver|yverylon|gname" {
+		t.Fatalf("hard wrap: %q", got)
+	}
+	h := testHub(t, "")
+	friend := testClient(t, h, "abdullahalmamunx", "")
+	online(t, friend)
+	s := tcell.NewSimulationScreen("UTF-8")
+	s.SetSize(70, 20)
+	c := NewClient(ClientOpts{Mode: modeJoin, URL: localURL(h.Port()), Nick: "suhailahmedtoha", Token: deviceToken("people")})
+	done := make(chan error, 1)
+	go func() { done <- runTUI(c, uiOpts{Skin: "plain"}, s) }()
+	waitFor(t, "connected", func() bool { return c.State() == stOnline })
+	shows := func(what string) func() bool { return func() bool { return strings.Contains(screenText(s), what) } }
+	waitFor(t, "people list by default", shows("people · 2 here"))
+	waitFor(t, "hint", shows("/people off: hide"))
+	waitFor(t, "long name whole", shows("abdullahalmamunx"))
+	waitFor(t, "own name whole", shows("suhailahmedtoha"))
+	waitFor(t, "(you) wrapped, not cut", shows("(you)"))
+	for _, r := range "/people off" {
+		s.InjectKey(tcell.KeyRune, r, tcell.ModNone)
+	}
+	s.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
+	waitFor(t, "hidden", func() bool { return !strings.Contains(screenText(s), "people · 2 here") })
+	waitFor(t, "how to bring it back", shows("/people on to show it again"))
+	s.InjectKey(tcell.KeyCtrlC, 0, tcell.ModNone)
+	<-done
+}

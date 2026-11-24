@@ -14,17 +14,18 @@ import (
 // parts with a kind (which decides colour) and an alignment.
 
 const (
-	pText   = iota // the message itself
-	pMeta          // time and punctuation: faint
-	pFaint         // a message from a chat you're not looking at
-	pName          // someone's name (each person gets their own colour)
-	pMe            // "you"
-	pRoom          // a room label: #lab
-	pDM            // a DM label
-	pNotice        // something worth noticing: someone changed their name
-	pFile          // a file
-	pCmd           // a key or a /command in help
-	pHead          // a heading in help
+	pText    = iota // the message itself
+	pMeta           // time and punctuation: faint
+	pFaint          // a message from a chat you're not looking at
+	pName           // someone's name (each person gets their own colour)
+	pMe             // "you"
+	pRoom           // a room label: #lab
+	pDM             // a DM label
+	pNotice         // something worth noticing: someone changed their name
+	pFile           // a file
+	pCmd            // a key or a /command in help
+	pHead           // a heading in help
+	pMention        // @you or @everyone inside a message
 )
 
 type part struct {
@@ -151,7 +152,7 @@ func fmtLine(l, prev *Line, v *View, skin string) []para {
 			}
 			return ps
 		}
-		return []part{{in.text, textKind, ""}}
+		return mentionParts(in.text, textKind, v)
 	}
 	name := part{in.name, nameKind(in), l.From}
 	one := func(ps ...part) []para { return []para{{parts: ps}} }
@@ -301,4 +302,80 @@ func plainText(ps []para) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// nameByte: what a name is made of (letters, digits, _ . -).
+func nameByte(b byte) bool {
+	return b == '_' || b == '.' || b == '-' || b >= '0' && b <= '9' || b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z'
+}
+
+// mentionsMe reports whether text @mentions nick (or says @everyone), the
+// way Messenger and WhatsApp count it: the name on its own doesn't.
+func mentionsMe(text, nick string) bool {
+	if nick == "" || !strings.Contains(text, "@") {
+		return false
+	}
+	lt := strings.ToLower(text)
+	for _, w := range []string{"@" + strings.ToLower(nick), "@everyone"} {
+		for i := 0; i < len(lt); {
+			j := strings.Index(lt[i:], w)
+			if j < 0 {
+				break
+			}
+			j += i
+			end := j + len(w)
+			okBefore := j == 0 || !nameByte(lt[j-1]) && lt[j-1] != '@'
+			okAfter := end == len(lt) || !(nameByte(lt[end]) && lt[end] != '.' && lt[end] != '-')
+			if okBefore && okAfter {
+				return true
+			}
+			i = j + 1
+		}
+	}
+	return false
+}
+
+// mentionParts splits a message so @names of people here get their colour
+// and @you / @everyone stand out. The first part is always the message's
+// own kind, so wrapped lines still line up under the text.
+func mentionParts(text string, kind int, v *View) []part {
+	if v == nil || !strings.Contains(text, "@") {
+		return []part{{text, kind, ""}}
+	}
+	byNick := make(map[string]string, len(v.Nicks))
+	for id, n := range v.Nicks {
+		byNick[strings.ToLower(n)] = id
+	}
+	out := []part{{"", kind, ""}}
+	last := 0
+	for i := 0; i < len(text); i++ {
+		if text[i] != '@' || i > 0 && nameByte(text[i-1]) {
+			continue
+		}
+		j := i + 1
+		for j < len(text) && nameByte(text[j]) {
+			j++
+		}
+		name := strings.TrimRight(text[i+1:j], ".-")
+		id, known := byNick[strings.ToLower(name)]
+		every := strings.EqualFold(name, "everyone")
+		if name == "" || !known && !every {
+			continue
+		}
+		end := i + 1 + len(name)
+		if i > last {
+			out = append(out, part{text[last:i], kind, ""})
+		}
+		k := pName
+		if every || id == v.MeID {
+			k = pMention
+		}
+		out = append(out, part{text[i:end], k, id})
+		last = end
+		i = end - 1
+	}
+	if last < len(text) {
+		out = append(out, part{text[last:], kind, ""})
+	}
+	return out
 }

@@ -51,6 +51,7 @@ options
       --dim            start with faint text
       --skin NAME      plain chat irc compact log code json (try /skin next)
       --no-color       no colours at all (so does the NO_COLOR variable)
+      --no-people      start without the people list on the right
       --wipe           clear the terminal when you quit
       --id WORD        a second person on the same computer (testing)
 
@@ -77,6 +78,7 @@ type args struct {
 	port                int
 	plain, dim, wipe    bool
 	wifi, noColor       bool
+	noPeople            bool
 }
 
 func parseArgs(in []string) (args, error) {
@@ -122,6 +124,8 @@ func parseArgs(in []string) (args, error) {
 			if a.skin, err = need(); err == nil && !validSkin(a.skin) {
 				err = errors.New("skins: " + strings.Join(skins, ", "))
 			}
+		case "no-people":
+			a.noPeople = true
 		case "no-color", "no-colour", "nocolor", "nocolour":
 			a.noColor = true
 		case "plain", "line":
@@ -242,7 +246,7 @@ func main() {
 	if name == "" {
 		name = defaultName(a.id)
 	}
-	ui := uiOpts{Skin: a.skin, Ghost: a.dim, Wipe: a.wipe, NoColor: a.noColor || os.Getenv("NO_COLOR") != ""}
+	ui := uiOpts{Skin: a.skin, Ghost: a.dim, Wipe: a.wipe, NoPeople: a.noPeople, NoColor: a.noColor || os.Getenv("NO_COLOR") != ""}
 	noBluetooth := false
 	if a.cmd == "bt" {
 		if runBluetooth(a, name, ui) {

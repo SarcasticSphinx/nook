@@ -6,7 +6,8 @@ import (
 )
 
 // Tab completes a /command being typed, then what that command takes (a
-// name, a room, a skin). Anywhere else Tab switches chats.
+// name, a room, a skin), and an @name in a message. Anywhere else Tab
+// switches chats.
 // One match fills it in; several show above the input and Tab goes through
 // them.
 
@@ -49,6 +50,13 @@ func (u *tui) complete() {
 		return out
 	}
 	switch {
+	case strings.HasPrefix(word, "@") && !strings.HasPrefix(in, "/"):
+		for _, n := range names() {
+			pool = append(pool, "@"+n)
+		}
+		if strings.HasPrefix(v.Target, "#") {
+			pool = append(pool, "@everyone")
+		}
 	case start == 0 && strings.HasPrefix(word, "/"):
 		for _, c := range commandNames {
 			pool = append(pool, "/"+c)
@@ -119,4 +127,10 @@ func (u *tui) setWord(c *compList, word, end string) {
 	w := []rune(word + end)
 	u.in = append(append(before, w...), []rune(c.after)...)
 	u.cur = len(before) + len(w)
+}
+
+// atWord: the word before the cursor is an @name being typed.
+func (u *tui) atWord() bool {
+	in := string(u.in[:u.cur])
+	return strings.HasPrefix(in[strings.LastIndex(in, " ")+1:], "@")
 }

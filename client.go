@@ -54,9 +54,11 @@ type Line struct {
 	Notice bool // a system line worth noticing (someone changed their name)
 	// A system line's Key is the chat it belongs to ("" = every chat):
 	// what you typed a command in, or the room someone joined.
-	Raw    bool // shown as is, without time (/help, /who)
-	File   *FileInfo
-	FileNo int // the number /get uses
+	Raw bool // shown as is, without time (/help, /who)
+	// Mention: someone else's message that says @yourname (or @everyone)
+	Mention bool
+	File    *FileInfo
+	FileNo  int // the number /get uses
 }
 
 type ClientOpts struct {
@@ -584,6 +586,7 @@ func (c *Client) addMsgLocked(m Msg) {
 	}
 	c.seen[m.ID] = true
 	l := Line{ID: m.ID, TS: m.TS + c.skew, From: m.From, Nick: m.Nick, Text: m.Text, Mine: m.From == c.me.ID}
+	l.Mention = !l.Mine && mentionsMe(m.Text, c.me.Nick)
 	if m.File != nil {
 		f := *m.File
 		c.fileNo++
@@ -783,6 +786,7 @@ const (
 type ChatTab struct {
 	Key, Label string
 	Unread     int
+	Mentions   int // unread messages that @mention you
 }
 
 func (v *View) label(key string) string {
@@ -838,10 +842,13 @@ func (c *Client) View(n int, only bool) View {
 		return strings.ToLower(v.People[i].Nick) < strings.ToLower(v.People[j].Nick)
 	})
 	c.lastRead[c.target] = c.seq // what's on screen counts as read
-	unread := map[string]int{}
+	unread, mention := map[string]int{}, map[string]int{}
 	for i := range c.lines {
 		if l := &c.lines[i]; !l.Sys && !l.Mine && l.Seq > c.lastRead[l.Key] {
 			unread[l.Key]++
+			if l.Mention {
+				mention[l.Key]++
+			}
 			if only && l.Key != c.target && (v.Peek == nil || l.Seq > v.Peek.Seq) {
 				cp := *l
 				v.Peek = &cp
@@ -853,7 +860,7 @@ func (c *Client) View(n int, only bool) View {
 	}
 	sort.Strings(v.Rooms)
 	for _, k := range append(c.myRoomsLocked(), prefixAll("@", c.dms)...) {
-		v.Chats = append(v.Chats, ChatTab{Key: k, Label: c.labelLocked(k), Unread: unread[k]})
+		v.Chats = append(v.Chats, ChatTab{Key: k, Label: c.labelLocked(k), Unread: unread[k], Mentions: mention[k]})
 	}
 	for _, b := range c.busy {
 		v.Busy = append(v.Busy, b)
@@ -1380,6 +1387,7 @@ func (c *Client) help() {
 		[2]string{"/who", "who is here, and their rooms"},
 		[2]string{"/rooms", "every room"},
 		[2]string{"/nick name", "change your name (everyone is told)"},
+		[2]string{"@name", "mention someone (Tab finishes the name); they see @ on the bar"},
 	)...)
 	lines = append(lines, sec("FILES",
 		[2]string{"/send path", "share a file here (or drag it into the window)"},
@@ -1389,7 +1397,7 @@ func (c *Client) help() {
 	)...)
 	lines = append(lines, sec("LOOKS",
 		[2]string{"/skin name", strings.Join(skins, " ")},
-		[2]string{"/people", "show or hide the people list"},
+		[2]string{"/people off", "hide the people list on the right (/people on: back)"},
 		[2]string{"/bar", "show or hide the chat bar"},
 		[2]string{"/all", "every chat on one screen, or one at a time"},
 		[2]string{"/dim", "faint text"},
