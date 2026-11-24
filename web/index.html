@@ -229,10 +229,248 @@ body.drag #drop{display:grid;animation:fade .15s}
   #jump{bottom:90px;right:16px}
   .card .r{flex-direction:column;gap:0}
 }
-/* ---------- Esc: a little game instead of the chat ---------- */
-#game{display:none;position:fixed;inset:0;width:100%;height:100%;background:var(--gbg,#f7f7f7);cursor:pointer}
-body.dec #game{display:block}
-body.dec{background:var(--gbg,#f7f7f7)}
+/* ---------- Esc: Chrome "No internet" offline decoy & Dino runner ---------- */
+:root {
+  --bg-color: #ffffff;
+  --text-primary: #202124;
+  --text-secondary: #5f6368;
+  --sprite-color: #535353;
+  --cloud-color: #dcdcdc;
+  --accent-color: #1a73e8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #202124;
+    --text-primary: #e8eaed;
+    --text-secondary: #9aa0a6;
+    --sprite-color: #acacac;
+    --cloud-color: #3c4043;
+    --accent-color: #8ab4f8;
+  }
+}
+
+body.night-cycle {
+  --bg-color: #202124;
+  --text-primary: #e8eaed;
+  --text-secondary: #9aa0a6;
+  --sprite-color: #acacac;
+  --cloud-color: #3c4043;
+}
+
+#game {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+  user-select: none;
+  z-index: 900;
+  transition: background-color 0.6s ease, color 0.6s ease;
+}
+
+body.dec #game {
+  display: block;
+}
+
+body.dec {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  user-select: none;
+  transition: background-color 0.6s ease, color 0.6s ease;
+}
+
+.offline-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  transition: padding 0.85s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+body.is-playing .offline-wrapper {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.game-container {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  height: 180px;
+  margin-bottom: 12px;
+  transition: max-width 0.85s cubic-bezier(0.2, 0.9, 0.3, 1),
+              transform 0.65s cubic-bezier(0.2, 0.9, 0.3, 1);
+  will-change: max-width, transform;
+}
+
+body.is-playing .game-container {
+  max-width: 100%;
+  transform: translateY(24px);
+}
+
+canvas#dino-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.sound-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sound-btn:hover {
+  background-color: rgba(128, 128, 128, 0.12);
+  color: var(--text-primary);
+}
+
+.sound-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.error-message {
+  width: 100%;
+  max-width: 680px;
+  padding-left: 8px;
+  transition: opacity 0.3s ease,
+              transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1),
+              max-height 0.75s cubic-bezier(0.2, 0.9, 0.3, 1),
+              margin 0.75s ease;
+  max-height: 320px;
+}
+
+body.is-playing .error-message {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(24px);
+  max-height: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+}
+
+.error-message h1 {
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+  letter-spacing: -0.01em;
+}
+
+.error-message p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.error-message ul {
+  margin: 0 0 20px 24px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.error-code {
+  font-size: 12px;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-family: 'Segoe UI', Roboto, monospace;
+}
+
+.mobile-controls {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  left: 0;
+  right: 0;
+  justify-content: space-between;
+  padding: 0 28px;
+  pointer-events: none;
+  z-index: 15;
+}
+
+body.is-playing .mobile-controls {
+  display: flex;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body.is-playing .mobile-controls {
+    display: none;
+  }
+}
+
+.touch-pad {
+  pointer-events: auto;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 1.5px solid var(--sprite-color);
+  background: rgba(128, 128, 128, 0.08);
+  color: var(--sprite-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0.65;
+}
+
+.touch-pad:active {
+  background: rgba(128, 128, 128, 0.22);
+  opacity: 1;
+}
+
+@media (max-width: 600px) {
+  .offline-wrapper {
+    padding: 18px;
+    justify-content: flex-start;
+    padding-top: 14vh;
+  }
+  body.is-playing .offline-wrapper {
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 18vh;
+  }
+  .game-container {
+    height: 155px;
+  }
+  .error-message h1 {
+    font-size: 21px;
+  }
+  .error-message p,
+  .error-message ul {
+    font-size: 14px;
+  }
+}
 </style>
 </head>
 <body class="chat">
@@ -288,7 +526,42 @@ body.dec{background:var(--gbg,#f7f7f7)}
 <div id="modal"></div>
 <div id="toast"></div>
 <input type="file" id="fileIn" multiple hidden>
-<canvas id="game" aria-label="game"></canvas>
+<div id="game" aria-label="game">
+  <!-- Audio Toggle Button -->
+  <button id="sound-toggle" class="sound-btn" aria-label="Toggle Sound" title="Toggle Sound">
+    <svg id="icon-sound-on" viewBox="0 0 24 24">
+      <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+    </svg>
+    <svg id="icon-sound-off" viewBox="0 0 24 24" style="display:none;">
+      <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+    </svg>
+  </button>
+
+  <main class="offline-wrapper">
+    <!-- Procedural Pixel-Art T-Rex Runner Canvas -->
+    <div class="game-container" id="game-container">
+      <canvas id="dino-canvas"></canvas>
+    </div>
+
+    <!-- Exact Chrome "No internet" Offline Error Message -->
+    <section class="error-message" id="error-message" aria-live="polite">
+      <h1>No internet</h1>
+      <p>Try:</p>
+      <ul>
+        <li>Checking the network cables, modem, and router</li>
+        <li>Reconnecting to Wi-Fi</li>
+        <li>Running Windows Network Diagnostics</li>
+      </ul>
+      <div class="error-code">ERR_INTERNET_DISCONNECTED</div>
+    </section>
+
+    <!-- Touch Controls for Mobile Devices -->
+    <div class="mobile-controls" id="mobile-controls">
+      <button type="button" class="touch-pad" id="btn-duck" aria-label="Duck">DUCK</button>
+      <button type="button" class="touch-pad" id="btn-jump" aria-label="Jump">JUMP</button>
+    </div>
+  </main>
+</div>
 <script>
 (function () {
   'use strict';
@@ -1462,183 +1735,888 @@ body.dec{background:var(--gbg,#f7f7f7)}
     if (S.mode === 'term') $('tin').focus();
   });
 
-  // ---- Esc: an original little runner game instead of the chat ----
-  // A pixel cat hops over boxes and ducks under paper planes. Space or Up
-  // (or a tap) jumps, Down ducks, Esc goes back to the chat.
+  // ---- Esc: Chrome "No internet" offline decoy & Dino runner ----
   var game = (function () {
-    var cv = $('game'), cx = cv.getContext('2d'), W = 0, H = 0, raf = 0, last = 0, P = 3;
-    var CAT_A = [
-      '..............x...x.',
-      '..............xx.xx.',
-      '..............xxxxx.',
-      'x.............x.x.xx',
-      'x.............xxxxx.',
-      '.x....xxxxxxxxxxxx..',
-      '.x...xxxxxxxxxxxxx..',
-      '..x.xxxxxxxxxxxxxx..',
-      '...xxxxxxxxxxxxxx...',
-      '....xxxxxxxxxxxxx...',
-      '....xx.xx....xx.xx..',
-      '....x...x....x...x..'
+    /* ========================================================================
+       1. RETRO 8-BIT WEB AUDIO SYNTHESIZER (NO EXTERNAL AUDIO FILES)
+       ======================================================================== */
+    var SoundFX = (function () {
+      var ctx = null;
+      var muted = store('dino_muted') === '1';
+
+      function ensureCtx() {
+        if (muted) return null;
+        if (!ctx) {
+          var AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) ctx = new AudioCtx();
+        }
+        if (ctx && ctx.state === 'suspended') {
+          ctx.resume().catch(function () {});
+        }
+        return ctx;
+      }
+
+      function tone(freqStart, freqEnd, duration, type, volume, delay) {
+        var ac = ensureCtx();
+        if (!ac) return;
+        try {
+          var now = ac.currentTime + (delay || 0);
+          var osc = ac.createOscillator();
+          var gain = ac.createGain();
+          osc.type = type || 'square';
+          osc.frequency.setValueAtTime(freqStart, now);
+          if (freqEnd && freqEnd !== freqStart) {
+            osc.frequency.exponentialRampToValueAtTime(freqEnd, now + duration);
+          }
+          gain.gain.setValueAtTime(volume || 0.06, now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+          osc.connect(gain);
+          gain.connect(ac.destination);
+          osc.start(now);
+          osc.stop(now + duration);
+        } catch (e) {}
+      }
+
+      return {
+        isMuted: function () { return muted; },
+        toggleMute: function () {
+          muted = !muted;
+          store('dino_muted', muted ? '1' : '0');
+          return muted;
+        },
+        jump: function () {
+          tone(320, 620, 0.09, 'square', 0.055, 0);
+        },
+        score: function () {
+          tone(587.33, 587.33, 0.08, 'square', 0.055, 0);
+          tone(880, 880, 0.16, 'square', 0.055, 0.085);
+        },
+        hit: function () {
+          tone(190, 65, 0.22, 'sawtooth', 0.08, 0);
+        }
+      };
+    })();
+
+    /* ========================================================================
+       2. PIXEL-ART SPRITE MATRICES (AUTHENTIC CHROME T-REX, CACTI, PTERO, UI)
+       ======================================================================== */
+    // Standing / Jumping T-Rex (20x21)
+    var DINO_STAND = [
+      '...........xxxxxxxx.',
+      '..........xxxxxxxxxx',
+      '..........xx.xxxxxxx',
+      '..........xxxxxxxxxx',
+      '..........xxxxxxxxxx',
+      '..........xxxxxxxxxx',
+      '..........xxxxx.....',
+      '..........xxxxxxxx..',
+      'x........xxxxxxx....',
+      'x.......xxxxxxxx....',
+      'xx.....xxxxxxxxxxx..',
+      'xxx...xxxxxxxxxx.x..',
+      'xxxxxxxxxxxxxxxx....',
+      '.xxxxxxxxxxxxxxx....',
+      '..xxxxxxxxxxxxx.....',
+      '...xxxxxxxxxxx......',
+      '....xxxxxxxxx.......',
+      '.....xxx..xxx.......',
+      '.....xx....xx.......',
+      '.....xx....xx.......',
+      '.....xxx...xxx......'
     ];
-    var CAT_B = CAT_A.slice(0, 10).concat([
-      '.....xx.xx..xx.xx...',
-      '.....x...x..x...x...'
+
+    // Blinking Idle T-Rex (20x21)
+    var DINO_BLINK = DINO_STAND.slice(0, 2).concat([
+      '..........xxxxxxxxxx'
+    ]).concat(DINO_STAND.slice(3));
+
+    // Running Frame A (Left leg up)
+    var DINO_RUN_A = DINO_STAND.slice(0, 17).concat([
+      '.....xxx..xxx.......',
+      '.....xx....xx.......',
+      '.....xxx............',
+      '....................'
     ]);
-    var DUCK = [
-      '................x...x.',
-      '................xx.xx.',
-      'x.....xxxxxxxxxxxxxxx.',
-      '.x..xxxxxxxxxxxxx.x.xx',
-      '..xxxxxxxxxxxxxxxxxxx.',
-      '...xxxxxxxxxxxxxxxx...',
-      '...xx.xx......xx.xx...'
+
+    // Running Frame B (Right leg up)
+    var DINO_RUN_B = DINO_STAND.slice(0, 17).concat([
+      '.....xxx..xxx.......',
+      '......xx...xx.......',
+      '...........xxx......',
+      '....................'
+    ]);
+
+    // Crashed T-Rex (Wide surprised eye)
+    var DINO_CRASH = [
+      '...........xxxxxxxx.',
+      '..........xxxxxxxxxx',
+      '..........x...xxxxxx',
+      '..........x.x.xxxxxx',
+      '..........x...xxxxxx',
+      '..........xxxxxxxxxx',
+      '..........xxxxx.....',
+      '..........xxxxxxxx..',
+      'x........xxxxxxx....',
+      'x.......xxxxxxxx....',
+      'xx.....xxxxxxxxxxx..',
+      'xxx...xxxxxxxxxx.x..',
+      'xxxxxxxxxxxxxxxx....',
+      '.xxxxxxxxxxxxxxx....',
+      '..xxxxxxxxxxxxx.....',
+      '...xxxxxxxxxxx......',
+      '....xxxxxxxxx.......',
+      '.....xxx..xxx.......',
+      '.....xx....xx.......',
+      '.....xx....xx.......',
+      '.....xxx...xxx......'
     ];
-    var PLANE = [
-      'xx..........',
-      'xxxx........',
-      '.xxxxxxx....',
-      '..xxxxxxxxxx',
-      '..xxxxxxx...',
-      '.xxx........'
+
+    // Ducking T-Rex Frame A (28x13)
+    var DINO_DUCK_A = [
+      '............................',
+      '............................',
+      'x................xxxxxxxxx..',
+      'xx..............xxxxxxxxxxx.',
+      'xxx............xxxx.xxxxxxxx',
+      'xxxx..........xxxxxxxxxxxxxx',
+      'xxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      '.xxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      '..xxxxxxxxxxxxxxxxxxxx......',
+      '...xxxxxxxxxxxxxxxxx........',
+      '.....xxx....xxx.............',
+      '.....xx......xx.............',
+      '.....xxx....................'
     ];
-    var g = { on: false, play: false, over: false, x: 0, y: 0, vy: 0, duck: false, speed: 0, dist: 0, obs: [], gap: 0, hi: Number(store('hi')) || 0, stones: [], clouds: [] };
-    var dark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-    function ink() { return dark && dark.matches ? '#c4cad3' : '#50555e'; }
-    function faint() { return dark && dark.matches ? '#3a3f47' : '#d9dce1'; }
-    function paper() { return dark && dark.matches ? '#1c1f24' : '#f6f7f9'; }
-    function ground() { return Math.round(H * 0.62); }
-    function size() {
-      var d = window.devicePixelRatio || 1;
-      W = window.innerWidth; H = window.innerHeight;
-      cv.width = W * d; cv.height = H * d;
-      cx.setTransform(d, 0, 0, d, 0, 0);
-      P = W < 600 ? 2 : 3;
-      document.documentElement.style.setProperty('--gbg', paper());
+
+    // Ducking T-Rex Frame B (28x13)
+    var DINO_DUCK_B = DINO_DUCK_A.slice(0, 10).concat([
+      '.....xxx....xxx.............',
+      '......xx.....xx.............',
+      '............xxx.............'
+    ]);
+
+    // Small Cactus (8x16)
+    var CACTUS_SMALL = [
+      '...xx...',
+      '...xx...',
+      'x..xx..x',
+      'x..xx..x',
+      'x..xx..x',
+      'x..xx..x',
+      'xxxxx..x',
+      '.xxxx..x',
+      '...xxxxx',
+      '...xxxx.',
+      '...xx...',
+      '...xx...',
+      '...xx...',
+      '...xx...',
+      '...xx...',
+      '...xx...'
+    ];
+
+    // Large Cactus (10x22)
+    var CACTUS_LARGE = [
+      '....xx....',
+      '...xxxx...',
+      '...xxxx...',
+      'x..xxxx..x',
+      'x..xxxx..x',
+      'x..xxxx..x',
+      'x..xxxx..x',
+      'x..xxxx..x',
+      'xxxxxxx..x',
+      '.xxxxxx..x',
+      '...xxxxxxx',
+      '...xxxxxx.',
+      '...xxxx...',
+      '...xxxx...',
+      '...xxxx...',
+      '...xxxx...',
+      '...xxxx...',
+      '...xxxx...',
+      '...xxxx...',
+      '...xxxx...',
+      '...xxxx...',
+      '...xxxx...'
+    ];
+
+    // Pterodactyl Wing Up (21x15)
+    var PTERO_UP = [
+      '.......xx............',
+      '.......xxx...........',
+      '.......xxxx..........',
+      '.......xxxxx.........',
+      '...xx..xxxxxx........',
+      '..xxxx.xxxxxxx.......',
+      '.xxxxxxxxxxxxxx......',
+      'xxxxxxxxxxxxxxxxx....',
+      '....xxxxxxxxxxxxxxx..',
+      '......xxxxxxxxxxxxxxx',
+      '........xxxxxxxxxx...',
+      '..........xxxxx......',
+      '.....................',
+      '.....................',
+      '.....................'
+    ];
+
+    // Pterodactyl Wing Down (21x15)
+    var PTERO_DOWN = [
+      '.....................',
+      '.....................',
+      '.....................',
+      '.....................',
+      '...xx................',
+      '..xxxx...............',
+      '.xxxxxxxxxxxxxx......',
+      'xxxxxxxxxxxxxxxxx....',
+      '....xxxxxxxxxxxxxxx..',
+      '......xxxxxxxxxxxxxxx',
+      '........xxxxxxxxxx...',
+      '........xxxxxxx......',
+      '........xxxxx........',
+      '........xxx..........',
+      '........xx...........'
+    ];
+
+    // Pixel Cloud (24x8)
+    var CLOUD_SPRITE = [
+      '.........xxxxxx.........',
+      '.......xxxxxxxxxx.......',
+      '.....xxxxxxxxxxxxxx.....',
+      '..xxxxxxxxxxxxxxxxxxxx..',
+      '.xxxxxxxxxxxxxxxxxxxxxx.',
+      'xxxxxxxxxxxxxxxxxxxxxxxx',
+      '.xxxxxxxxxxxxxxxxxxxxxx.',
+      '........................'
+    ];
+
+    // Chrome Restart Icon (18x15)
+    var RESTART_ICON = [
+      '......xxxxxx......',
+      '....xxxxxxxxxx....',
+      '...xxx......xxx...',
+      '..xx..........xx..',
+      '.xx............xx.',
+      '.xx............xx.',
+      '.xx..........xxxxx',
+      '.xx...........xxxx',
+      '.xx............xxx',
+      '.xx.............x.',
+      '.xx...............',
+      '..xx..........xx..',
+      '...xxx......xxx...',
+      '....xxxxxxxxxx....',
+      '......xxxxxx......'
+    ];
+
+    /* ========================================================================
+       3. CANVAS & GAME STATE SETUP
+       ======================================================================== */
+    var canvas = $('dino-canvas');
+    var ctx = canvas.getContext('2d');
+    var container = $('game-container');
+
+    var W = 680;
+    var H = 180;
+    var P = 2; // Pixel scale unit
+    var rafId = 0;
+    var lastTime = 0;
+    var prevTitle = document.title;
+
+    var state = {
+      on: false,            // True when decoy screen is visible
+      started: false,       // False until first jump (shows Chrome offline page)
+      playing: false,       // True during active run
+      gameOver: false,      // True on collision
+      overAt: 0,
+      x: 34,
+      y: 0,                 // Height above ground (0 = grounded)
+      vy: 0,
+      ducking: false,
+      speed: 360,
+      distance: 0,
+      hiScore: Number(store('chrome_dino_hi') || store('hi')) || 0,
+      flashTimer: 0,
+      blinkTimer: 0,
+      isBlinking: false,
+      groundReveal: 68,     // Expands from under Dino to full width on start
+      obstacles: [],
+      nextGap: 320,
+      pebbles: [],
+      clouds: [],
+      nightMode: false,
+      lastNightCycle: 0
+    };
+
+    /* ========================================================================
+       4. THEME & COLOR HELPERS
+       ======================================================================== */
+    var darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+    function isDarkTheme() {
+      return state.nightMode || (darkQuery && darkQuery.matches);
     }
-    function sprite(rows, x, y, color) {
-      cx.fillStyle = color;
-      for (var r = 0; r < rows.length; r++)
-        for (var c = 0; c < rows[r].length; c++)
-          if (rows[r].charAt(c) === 'x') cx.fillRect(Math.round(x + c * P), Math.round(y + r * P), P, P);
+
+    function getSpriteColor() {
+      return isDarkTheme() ? '#acacac' : '#535353';
     }
-    function reset() {
-      g.play = true; g.over = false; g.y = 0; g.vy = 0; g.duck = false; g.speed = 330; g.dist = 0; g.obs = []; g.gap = 420; g.flash = 0;
+
+    function getCloudColor() {
+      return isDarkTheme() ? '#3c4043' : '#dcdcdc';
     }
-    function jump() {
-      if (g.over && Date.now() - g.overAt < 600) return; // no restarting by accident
-      if (!g.play || g.over) { reset(); return; }
-      if (g.y === 0) g.vy = -800;
+
+    function getBgColor() {
+      return isDarkTheme() ? '#202124' : '#ffffff';
     }
-    function letGo() { if (g.vy < -330) g.vy = -330; } // a short tap is a short hop
-    function spawn() {
-      var t = Math.random(), o;
-      if (g.speed > 470 && t < 0.25) {
-        o = { kind: 'plane', w: 12 * P, h: 6 * P, lift: [10, 26, 50][Math.floor(Math.random() * 3)] * P / 3 * 1.6 };
+
+    function getGroundY() {
+      return H - 22;
+    }
+
+    /* ========================================================================
+       5. RESPONSIVE RESIZING & SCALING
+       ======================================================================== */
+    function resizeCanvas() {
+      var rect = container.getBoundingClientRect();
+      var cw = rect.width || container.clientWidth || 680;
+      var ch = rect.height || container.clientHeight || 180;
+      var dpr = window.devicePixelRatio || 1;
+      W = Math.max(300, Math.floor(cw));
+      H = Math.max(140, Math.floor(ch));
+
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      P = W < 480 ? 2 : 2;
+      state.x = W < 480 ? 22 : 34;
+
+      if (!state.started) {
+        state.groundReveal = state.x + 54;
       } else {
-        var n = 1 + Math.floor(Math.random() * (g.speed > 420 ? 3 : 2)), tall = Math.random() < 0.3;
-        o = { kind: 'box', w: n * 8 * P, h: (tall ? 12 : 8) * P, n: n };
+        state.groundReveal = W;
       }
-      o.x = W + 20;
-      g.obs.push(o);
-      g.gap = Math.max(240, g.speed * 0.62) + Math.random() * 360; // always room to land and jump again
     }
-    function hit(o) {
-      var cw = (g.duck ? 22 : 20) * P, ch = (g.duck ? 7 : 12) * P;
-      var ax = g.x + P * 2, ay = ground() - ch - g.y + P, aw = cw - P * 4, ah = ch - P * 2;
-      var oy = o.kind === 'plane' ? ground() - o.h - o.lift : ground() - o.h;
-      return ax < o.x + o.w - P && ax + aw > o.x + P && ay < oy + o.h - P && ay + ah > oy + P;
-    }
-    function step(dt) {
-      if (!g.play || g.over) return;
-      g.speed = Math.min(840, g.speed + 9 * dt);
-      var before = Math.floor(g.dist / 1200);
-      g.dist += g.speed * dt;
-      if (Math.floor(g.dist / 1200) > before) g.flash = 0.9; // every 100 points the score blinks
-      if (g.flash > 0) g.flash -= dt;
-      g.vy += (g.duck && g.y > 0 ? 5200 : 2500) * dt;
-      g.y = Math.max(0, g.y - g.vy * dt);
-      if (g.y === 0 && g.vy > 0) g.vy = 0;
-      g.gap -= g.speed * dt;
-      if (g.gap <= 0) spawn();
-      for (var i = g.obs.length - 1; i >= 0; i--) {
-        var o = g.obs[i];
-        o.x -= g.speed * dt * (o.kind === 'plane' ? 1.12 : 1);
-        if (o.x + o.w < -20) g.obs.splice(i, 1);
-        else if (hit(o)) {
-          g.over = true; g.overAt = Date.now(); g.flash = 0;
-          var sc = Math.floor(g.dist / 12);
-          if (sc > g.hi) { g.hi = sc; store('hi', String(sc)); }
+
+    /* ========================================================================
+       6. SPRITE RENDERER & ENVIRONMENT INITIALIZATION
+       ======================================================================== */
+    function drawSprite(matrix, x, y, color) {
+      ctx.fillStyle = color;
+      var rx = Math.round(x);
+      var ry = Math.round(y);
+      for (var r = 0; r < matrix.length; r++) {
+        var row = matrix[r];
+        for (var c = 0; c < row.length; c++) {
+          if (row.charAt(c) === 'x') {
+            ctx.fillRect(rx + c * P, ry + r * P, P, P);
+          }
         }
       }
-      g.stones.forEach(function (s) { s.x -= g.speed * dt; if (s.x < -10) { s.x = W + Math.random() * 60; s.y = Math.random() * 16; } });
-      g.clouds.forEach(function (c) { c.x -= g.speed * dt * 0.12; if (c.x < -80) { c.x = W + Math.random() * 200; c.y = 40 + Math.random() * H * 0.3; } });
     }
-    function pad5(n) { return ('00000' + n).slice(-5); }
-    function draw() {
-      var gy = ground(), inkc = ink();
-      cx.fillStyle = paper(); cx.fillRect(0, 0, W, H);
-      cx.fillStyle = faint();
-      g.clouds.forEach(function (c) { cx.fillRect(c.x, c.y, 46, 6); cx.fillRect(c.x + 10, c.y - 6, 26, 6); });
-      cx.fillStyle = inkc;
-      cx.fillRect(0, gy, W, 2);
-      g.stones.forEach(function (s) { cx.fillRect(s.x, gy + 6 + s.y, s.w, 2); });
-      g.obs.forEach(function (o) {
-        if (o.kind === 'plane') { sprite(PLANE, o.x, gy - o.h - o.lift, inkc); return; }
-        for (var k = 0; k < o.n; k++) {
-          var bx = o.x + k * 8 * P, bw = 8 * P - 2, by = gy - o.h;
-          cx.strokeStyle = inkc; cx.lineWidth = 2;
-          cx.strokeRect(bx + 1, by + 1, bw - 2, o.h - 2);
-          cx.beginPath(); cx.moveTo(bx + 1, by + 1); cx.lineTo(bx + bw - 1, gy - 1); cx.moveTo(bx + bw - 1, by + 1); cx.lineTo(bx + 1, gy - 1); cx.stroke();
+
+    function initScenery() {
+      var spread = Math.max(window.innerWidth || 1200, 1400);
+      state.pebbles = [];
+      var pebbleCount = Math.max(36, Math.floor(spread / 28));
+      for (var i = 0; i < pebbleCount; i++) {
+        state.pebbles.push({
+          x: Math.random() * spread,
+          y: 4 + Math.floor(Math.random() * 10),
+          w: (1 + Math.floor(Math.random() * 4)) * P
+        });
+      }
+      state.clouds = [];
+      var cloudCount = Math.max(4, Math.floor(spread / 300));
+      for (var j = 0; j < cloudCount; j++) {
+        state.clouds.push({
+          x: 100 + j * 280 + Math.random() * 80,
+          y: 18 + Math.floor(Math.random() * 46)
+        });
+      }
+    }
+
+    /* ========================================================================
+       7. GAME LIFECYCLE (START, JUMP, DUCK, SPAWN, COLLISION)
+       ======================================================================== */
+    function startGame() {
+      if (!state.started) {
+        state.started = true;
+        document.body.classList.add('is-playing');
+      }
+      state.playing = true;
+      state.gameOver = false;
+      state.y = 0;
+      state.vy = 0;
+      state.ducking = false;
+      state.speed = 360;
+      state.distance = 0;
+      state.obstacles = [];
+      state.nextGap = 380;
+      state.flashTimer = 0;
+      state.nightMode = false;
+      state.lastNightCycle = 0;
+      document.body.classList.remove('night-cycle');
+    }
+
+    function triggerJump() {
+      if (state.gameOver && Date.now() - state.overAt < 450) {
+        return; // Prevent accidental double-tap instant restart
+      }
+      if (!state.playing || state.gameOver) {
+        startGame();
+        state.vy = -660;
+        SoundFX.jump();
+        return;
+      }
+      if (state.y === 0) {
+        state.vy = -660;
+        SoundFX.jump();
+      }
+    }
+
+    function releaseJump() {
+      // Variable jump height: releasing early caps upward velocity for a short hop
+      if (state.vy < -290) {
+        state.vy = -290;
+      }
+    }
+
+    function spawnObstacle() {
+      var score = Math.floor(state.distance / 15);
+      var roll = Math.random();
+      var obs;
+
+      // Spawn flying Pterodactyls after 350 points
+      if (score > 350 && roll < 0.26) {
+        // 3 Chrome altitudes: low (jump over), mid (duck or jump), high (run/duck under)
+        var lifts = [14, 38, 66];
+        var lift = lifts[Math.floor(Math.random() * lifts.length)];
+        obs = {
+          kind: 'ptero',
+          x: W + 24,
+          w: 21 * P,
+          h: 15 * P,
+          lift: lift
+        };
+      } else {
+        // Small or Large Cacti in clusters of 1, 2, or 3
+        var isLarge = score > 120 && Math.random() < 0.45;
+        var maxCluster = score > 250 ? 3 : 2;
+        var count = 1 + Math.floor(Math.random() * maxCluster);
+        var unitW = (isLarge ? 10 : 8) * P;
+        var unitH = (isLarge ? 22 : 16) * P;
+        obs = {
+          kind: isLarge ? 'cactus_lg' : 'cactus_sm',
+          x: W + 24,
+          w: count * unitW + (count - 1) * 2,
+          h: unitH,
+          count: count,
+          unitW: unitW
+        };
+      }
+
+      state.obstacles.push(obs);
+      // Ensure fair landing & reaction gap proportional to current speed
+      var minGap = Math.max(220, state.speed * 0.56);
+      state.nextGap = minGap + Math.random() * 260;
+    }
+
+    function checkCollision(obs) {
+      var gy = getGroundY();
+      // Forgiving inner hitboxes matching original Chrome Dino tuning
+      var dinoW = (state.ducking && state.y === 0 ? 28 : 20) * P;
+      var dinoH = (state.ducking && state.y === 0 ? 13 : 21) * P;
+
+      var ax = state.x + 4 * P;
+      var ay = gy - dinoH - state.y + 3 * P;
+      var aw = dinoW - 8 * P;
+      var ah = dinoH - 5 * P;
+
+      var oy = obs.kind === 'ptero'
+        ? gy - obs.h - obs.lift
+        : gy - obs.h;
+
+      var bx = obs.x + 2 * P;
+      var by = oy + 2 * P;
+      var bw = obs.w - 4 * P;
+      var bh = obs.h - 3 * P;
+
+      return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+    }
+
+    /* ========================================================================
+       8. FIXED-TIMESTEP SIMULATION UPDATE
+       ======================================================================== */
+    function update(dt) {
+      // Dynamic canvas tracking during full-width transition or window resize
+      var cw = Math.max(300, container.clientWidth);
+      var ch = Math.max(140, container.clientHeight);
+      if (cw !== W || ch !== H) {
+        var dpr = window.devicePixelRatio || 1;
+        W = cw;
+        H = ch;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        P = W < 480 ? 2 : 2;
+        state.x = W < 480 ? 22 : 34;
+      }
+
+      // Smoothly expand ground line across screen when game starts
+      if (state.started && state.groundReveal < W) {
+        state.groundReveal = Math.min(W, state.groundReveal + 2400 * dt);
+      }
+
+      // Idle blinking animation before starting
+      if (!state.started) {
+        state.blinkTimer += dt;
+        if (!state.isBlinking && state.blinkTimer > 3.2) {
+          state.isBlinking = true;
+          state.blinkTimer = 0;
+        } else if (state.isBlinking && state.blinkTimer > 0.16) {
+          state.isBlinking = false;
+          state.blinkTimer = 0;
         }
-      });
-      var legs = Math.floor(g.dist / 40) % 2 && g.y === 0 && g.play && !g.over;
-      var cat = g.duck && g.y === 0 ? DUCK : legs ? CAT_B : CAT_A;
-      sprite(cat, g.x, gy - cat.length * P - g.y, inkc);
-      cx.fillStyle = inkc;
-      cx.font = '600 15px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
-      cx.textAlign = 'right';
-      var shown = g.flash > 0 ? Math.floor(g.dist / 1200) * 100 : Math.floor(g.dist / 12);
-      var blink = g.flash > 0 && Math.floor(g.flash * 7) % 2 === 1;
-      cx.fillText((g.hi ? 'BEST ' + pad5(g.hi) + '   ' : '') + (blink ? '     ' : pad5(shown)), W - 24, 36);
-      cx.textAlign = 'center';
-      if (!g.play) cx.fillText('press space to play', W / 2, gy + 60);
-      else if (g.over) { cx.font = '700 18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace'; cx.fillText('oops', W / 2, gy - 150); cx.font = '600 14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace'; cx.fillText('space to try again', W / 2, gy - 124); }
+        return;
+      }
+
+      if (!state.playing || state.gameOver) return;
+
+      // Gradual speed ramp up to max cap
+      state.speed = Math.min(820, state.speed + 8.5 * dt);
+
+      var prevMilestone = Math.floor(state.distance / 1500); // Every 100 points
+      state.distance += state.speed * dt;
+      var currentScore = Math.floor(state.distance / 15);
+      var currMilestone = Math.floor(state.distance / 1500);
+
+      // 100-point chime & flashing score
+      if (currMilestone > prevMilestone && currMilestone > 0) {
+        state.flashTimer = 1.0;
+        SoundFX.score();
+      }
+      if (state.flashTimer > 0) {
+        state.flashTimer = Math.max(0, state.flashTimer - dt);
+      }
+
+      // Day/Night cycle toggle every 700 points
+      var cycle = Math.floor(currentScore / 700);
+      if (cycle !== state.lastNightCycle) {
+        state.lastNightCycle = cycle;
+        state.nightMode = (cycle % 2 === 1);
+        if (state.nightMode) {
+          document.body.classList.add('night-cycle');
+        } else {
+          document.body.classList.remove('night-cycle');
+        }
+      }
+
+      // Vertical jump & fast-fall gravity physics
+      var gravity = (state.ducking && state.y > 0) ? 4600 : 2150;
+      state.vy += gravity * dt;
+      state.y = Math.max(0, state.y - state.vy * dt);
+      if (state.y === 0 && state.vy > 0) {
+        state.vy = 0;
+      }
+
+      // Obstacle spawning & movement
+      state.nextGap -= state.speed * dt;
+      if (state.nextGap <= 0) {
+        spawnObstacle();
+      }
+
+      for (var i = state.obstacles.length - 1; i >= 0; i--) {
+        var o = state.obstacles[i];
+        var speedMult = o.kind === 'ptero' ? 1.12 : 1.0;
+        o.x -= state.speed * speedMult * dt;
+
+        if (o.x + o.w < -30) {
+          state.obstacles.splice(i, 1);
+        } else if (checkCollision(o)) {
+          state.gameOver = true;
+          state.overAt = Date.now();
+          state.flashTimer = 0;
+          SoundFX.hit();
+          if (currentScore > state.hiScore) {
+            state.hiScore = currentScore;
+            store('chrome_dino_hi', String(currentScore));
+            store('hi', String(currentScore));
+          }
+        }
+      }
+
+      // Scroll ground pebbles
+      for (var p = 0; p < state.pebbles.length; p++) {
+        var pb = state.pebbles[p];
+        pb.x -= state.speed * dt;
+        if (pb.x < -12) {
+          pb.x = W + Math.random() * 40;
+          pb.y = 4 + Math.floor(Math.random() * 10);
+        }
+      }
+
+      // Drift background clouds
+      for (var c = 0; c < state.clouds.length; c++) {
+        var cl = state.clouds[c];
+        cl.x -= state.speed * 0.14 * dt;
+        if (cl.x < -60) {
+          cl.x = W + 40 + Math.random() * 140;
+          cl.y = 22 + Math.floor(Math.random() * 46);
+        }
+      }
     }
-    function loop(t) {
-      if (!g.on) return;
-      var dt = Math.min(0.05, (t - (last || t)) / 1000);
-      last = t;
-      step(dt); draw();
-      raf = requestAnimationFrame(loop);
+
+    /* ========================================================================
+       9. CANVAS RENDERING PIPELINE
+       ======================================================================== */
+    function padScore(num) {
+      return ('00000' + Math.min(99999, num)).slice(-5);
     }
-    function show(on) {
-      g.on = on;
-      cancelAnimationFrame(raf); last = 0;
-      if (!on) return;
-      size();
-      g.x = Math.max(24, W * 0.08);
-      if (!g.stones.length) for (var i = 0; i < 26; i++) g.stones.push({ x: Math.random() * W, y: Math.random() * 16, w: 2 + Math.floor(Math.random() * 6) });
-      if (!g.clouds.length) for (var j = 0; j < 4; j++) g.clouds.push({ x: Math.random() * W, y: 40 + Math.random() * H * 0.3 });
-      raf = requestAnimationFrame(loop);
+
+    function render() {
+      var gy = getGroundY();
+      var ink = getSpriteColor();
+      var cloudInk = getCloudColor();
+
+      ctx.clearRect(0, 0, W, H);
+
+      // 1. Background Clouds (visible once game has started)
+      if (state.started) {
+        for (var c = 0; c < state.clouds.length; c++) {
+          drawSprite(CLOUD_SPRITE, state.clouds[c].x, state.clouds[c].y, cloudInk);
+        }
+      }
+
+      // 2. Ground Horizon Line & Pebbles
+      ctx.fillStyle = ink;
+      var lineWidth = state.started ? state.groundReveal : (state.x + 52);
+      ctx.fillRect(state.started ? 0 : state.x - 6, gy, lineWidth, P);
+
+      if (state.started) {
+        for (var p = 0; p < state.pebbles.length; p++) {
+          var pb = state.pebbles[p];
+          if (pb.x < lineWidth) {
+            ctx.fillRect(Math.round(pb.x), gy + pb.y, pb.w, P);
+          }
+        }
+      }
+
+      // 3. Obstacles (Cacti & Pterodactyls)
+      var wingFrame = Math.floor(state.distance / 55) % 2 === 0 ? PTERO_UP : PTERO_DOWN;
+      for (var i = 0; i < state.obstacles.length; i++) {
+        var o = state.obstacles[i];
+        if (o.kind === 'ptero') {
+          drawSprite(wingFrame, o.x, gy - o.h - o.lift, ink);
+        } else {
+          var matrix = o.kind === 'cactus_lg' ? CACTUS_LARGE : CACTUS_SMALL;
+          for (var k = 0; k < o.count; k++) {
+            drawSprite(matrix, o.x + k * (o.unitW + 2), gy - o.h, ink);
+          }
+        }
+      }
+
+      // 4. T-Rex Character Sprite Selection
+      var dinoMatrix;
+      if (state.gameOver) {
+        dinoMatrix = DINO_CRASH;
+      } else if (!state.started) {
+        dinoMatrix = state.isBlinking ? DINO_BLINK : DINO_STAND;
+      } else if (state.y > 0) {
+        dinoMatrix = DINO_STAND;
+      } else if (state.ducking) {
+        dinoMatrix = (Math.floor(state.distance / 36) % 2 === 0) ? DINO_DUCK_A : DINO_DUCK_B;
+      } else {
+        dinoMatrix = (Math.floor(state.distance / 36) % 2 === 0) ? DINO_RUN_A : DINO_RUN_B;
+      }
+
+      var dinoY = gy - dinoMatrix.length * P - state.y + P;
+      drawSprite(dinoMatrix, state.x, dinoY, ink);
+
+      // 5. Chrome Monospace Scoreboard (Top Right)
+      if (state.started) {
+        ctx.fillStyle = ink;
+        ctx.font = '700 14px "Courier New", Courier, ui-monospace, monospace';
+        ctx.textAlign = 'right';
+
+        var rawScore = Math.floor(state.distance / 15);
+        var displayScore = state.flashTimer > 0
+          ? Math.floor(state.distance / 1500) * 100
+          : rawScore;
+        var isBlinkHidden = state.flashTimer > 0 && Math.floor(state.flashTimer * 8) % 2 === 1;
+
+        var scoreText = (state.hiScore > 0 ? 'HI ' + padScore(state.hiScore) + '  ' : '') +
+                        (isBlinkHidden ? '     ' : padScore(displayScore));
+        ctx.fillText(scoreText, W - 8, 22);
+      }
+
+      // 6. Chrome "G A M E  O V E R" Banner & Pixel Restart Button
+      if (state.gameOver) {
+        ctx.fillStyle = ink;
+        ctx.font = '700 16px "Courier New", Courier, ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('G A M E   O V E R', W / 2, gy - 72);
+
+        var iconW = RESTART_ICON[0].length * P;
+        var iconX = Math.round(W / 2 - iconW / 2);
+        var iconY = gy - 54;
+        drawSprite(RESTART_ICON, iconX, iconY, ink);
+      }
     }
-    window.addEventListener('resize', function () { if (g.on) size(); });
-    if (dark && dark.addEventListener) dark.addEventListener('change', function () { if (g.on) size(); });
+
+    /* ========================================================================
+       10. MAIN ANIMATION LOOP & INPUT LISTENERS
+       ======================================================================== */
+    function loop(timestamp) {
+      if (!state.on) return;
+      if (!lastTime) lastTime = timestamp;
+      var dt = Math.min(0.05, (timestamp - lastTime) / 1000);
+      lastTime = timestamp;
+
+      update(dt);
+      render();
+      rafId = requestAnimationFrame(loop);
+    }
+
+    // Keyboard Controls
     document.addEventListener('keydown', function (e) {
-      if (!g.on) return;
-      if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); jump(); }
-      else if (e.key === 'ArrowDown') { e.preventDefault(); g.duck = true; }
+      if (!state.on) return;
+      if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === ' ') {
+        e.preventDefault();
+        if (!e.repeat) triggerJump();
+      } else if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        state.ducking = true;
+      }
     });
+
     document.addEventListener('keyup', function (e) {
-      if (!g.on) return;
-      if (e.key === 'ArrowDown') g.duck = false;
-      if (e.key === ' ' || e.key === 'ArrowUp') letGo();
+      if (!state.on) return;
+      if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === ' ') {
+        releaseJump();
+      } else if (e.code === 'ArrowDown') {
+        state.ducking = false;
+      }
     });
-    document.addEventListener('visibilitychange', function () { last = 0; }); // no jump in time after the tab comes back
+
+    // Canvas Pointer / Touch Controls
+    var touchStartY = 0;
     var hold = 0; // phones have no Esc: holding a finger on the game goes back
-    cv.addEventListener('pointerdown', function (e) { e.preventDefault(); jump(); clearTimeout(hold); hold = setTimeout(function () { decoy(false); }, 900); });
-    cv.addEventListener('pointerup', function () { clearTimeout(hold); letGo(); });
-    cv.addEventListener('pointercancel', function () { clearTimeout(hold); });
+    canvas.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      touchStartY = e.clientY;
+      triggerJump();
+      clearTimeout(hold);
+      hold = setTimeout(function () { decoy(false); }, 900);
+    });
+
+    canvas.addEventListener('pointermove', function (e) {
+      if (e.buttons > 0 && e.clientY - touchStartY > 24) {
+        state.ducking = true;
+        clearTimeout(hold);
+      }
+    });
+
+    canvas.addEventListener('pointerup', function () {
+      clearTimeout(hold);
+      releaseJump();
+      state.ducking = false;
+    });
+
+    canvas.addEventListener('pointercancel', function () {
+      clearTimeout(hold);
+      releaseJump();
+      state.ducking = false;
+    });
+
+    // Mobile On-Screen Touch Buttons
+    var btnJump = $('btn-jump');
+    var btnDuck = $('btn-duck');
+
+    btnJump.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      triggerJump();
+    });
+    btnJump.addEventListener('pointerup', function (e) {
+      e.preventDefault();
+      releaseJump();
+    });
+
+    btnDuck.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      state.ducking = true;
+    });
+    btnDuck.addEventListener('pointerup', function (e) {
+      e.preventDefault();
+      state.ducking = false;
+    });
+    btnDuck.addEventListener('pointerleave', function () {
+      state.ducking = false;
+    });
+
+    // Sound Toggle UI
+    var soundBtn = $('sound-toggle');
+    var iconOn = $('icon-sound-on');
+    var iconOff = $('icon-sound-off');
+
+    function updateSoundIcon() {
+      var m = SoundFX.isMuted();
+      iconOn.style.display = m ? 'none' : 'block';
+      iconOff.style.display = m ? 'block' : 'none';
+    }
+
+    soundBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      SoundFX.toggleMute();
+      updateSoundIcon();
+    });
+
+    // Tab Visibility & Resize Handling
+    document.addEventListener('visibilitychange', function () {
+      lastTime = 0;
+    });
+
+    window.addEventListener('resize', function () {
+      if (state.on) resizeCanvas();
+    });
+
+    if (darkQuery && darkQuery.addEventListener) {
+      darkQuery.addEventListener('change', function () {
+        if (state.on) render();
+      });
+    }
+
+    /* ========================================================================
+       11. DECOY SHOW / HIDE LIFECYCLE
+       ======================================================================== */
+    function show(on) {
+      state.on = on;
+      cancelAnimationFrame(rafId);
+      lastTime = 0;
+      if (!on) {
+        document.title = prevTitle || 'Nook';
+        document.body.classList.remove('night-cycle', 'is-playing');
+        state.started = false;
+        state.playing = false;
+        state.gameOver = false;
+        state.ducking = false;
+        state.y = 0;
+        state.vy = 0;
+        state.obstacles = [];
+        return;
+      }
+      prevTitle = document.title;
+      document.title = 'No internet';
+      document.body.classList.remove('night-cycle', 'is-playing');
+      updateSoundIcon();
+      resizeCanvas();
+      if (!state.pebbles.length) initScenery();
+      rafId = requestAnimationFrame(loop);
+    }
+
     return { show: show };
   })();
 

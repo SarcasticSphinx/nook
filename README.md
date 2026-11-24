@@ -168,8 +168,8 @@ button at the top right or `/ui chat` and `/ui term`:
 - **Terminal**: the same plain text look as the app.
 
 In both, Tab switches chats (or finishes a `/command`), and Esc swaps the
-chat for a little runner game: a pixel cat hopping over boxes and ducking
-under paper planes. Hold Space longer to jump higher, Down ducks, the
+chat for a little runner game: the classic Chrome "No internet" T-Rex hopping over
+cacti and ducking under pterodactyls. Hold Space longer to jump higher, Down ducks, the
 score blinks at every 100, and it keeps your best. On a phone, tap to jump
 and hold to go back. The tab
 is called "Nook" and has no icon. The commands are the same as in the app, `/autohide` hides
