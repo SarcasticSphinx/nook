@@ -172,7 +172,7 @@ chat for a little runner game: a pixel cat hopping over boxes and ducking
 under paper planes. Hold Space longer to jump higher, Down ducks, the
 score blinks at every 100, and it keeps your best. On a phone, tap to jump
 and hold to go back. The tab
-is called "Runner" and has no icon. The commands are the same as in the app, `/autohide` hides
+is called "Nook" and has no icon. The commands are the same as in the app, `/autohide` hides
 the chat whenever you click away, and Ctrl+W closes the tab while
 Ctrl+Shift+T brings it straight back, still signed in.
 
