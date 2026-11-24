@@ -14,7 +14,7 @@ import (
 var commandNames = []string{
 	"all", "bar", "clear", "colors", "dim", "dm", "fade", "files", "g", "get",
 	"help", "hide", "info", "join", "key", "leave", "mouse", "nick", "people",
-	"quit", "r", "rooms", "see", "send", "skin", "who",
+	"mode", "quit", "r", "rooms", "see", "send", "skin", "who",
 }
 
 type compList struct {
@@ -70,6 +70,8 @@ func (u *tui) complete() {
 		if !strings.HasPrefix(word, "#") && word != "" {
 			word = "#" + word
 		}
+	case cmd == "mode":
+		pool = []string{"base", "chat"}
 	case cmd == "skin" || cmd == "theme":
 		pool = append(append(pool, skins...), "next")
 	case cmd == "get" || cmd == "see" || cmd == "send":

@@ -315,6 +315,9 @@ func TestArgs(t *testing.T) {
 	if _, err := parseArgs([]string{"--port", "99999"}); err == nil {
 		t.Fatal("bad port accepted")
 	}
+	if a, err := parseArgs([]string{"--base", "--no-people"}); err != nil || !a.base || !a.noPeople {
+		t.Fatalf("--base --no-people: %+v %v", a, err)
+	}
 	for _, s := range skins {
 		if a, err := parseArgs([]string{"--skin", s, "--no-color"}); err != nil || a.skin != s || !a.noColor {
 			t.Fatalf("--skin %s: %+v %v", s, a, err)

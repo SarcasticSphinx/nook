@@ -1397,6 +1397,7 @@ func (c *Client) help() {
 	)...)
 	lines = append(lines, sec("LOOKS",
 		[2]string{"/skin name", strings.Join(skins, " ")},
+		[2]string{"/mode base", "just the chat: no bar, no people list (/mode chat: back)"},
 		[2]string{"/people off", "hide the people list on the right (/people on: back)"},
 		[2]string{"/bar", "show or hide the chat bar"},
 		[2]string{"/all", "every chat on one screen, or one at a time"},

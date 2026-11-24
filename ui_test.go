@@ -353,9 +353,9 @@ func TestPeopleList(t *testing.T) {
 	waitFor(t, "connected", func() bool { return c.State() == stOnline })
 	shows := func(what string) func() bool { return func() bool { return strings.Contains(screenText(s), what) } }
 	waitFor(t, "people list by default", shows("people · 2 here"))
-	waitFor(t, "tips", shows("/people off  hide this"))
-	waitFor(t, "dm tip", shows("/dm name  DM someone"))
-	waitFor(t, "help tip", shows("/help  all commands"))
+	waitFor(t, "dm tip", shows("/dm name    DM someone"))
+	waitFor(t, "help tip", shows("/help       all commands"))
+	waitFor(t, "mode tip", shows("/mode base  simple mode"))
 	waitFor(t, "long name whole", shows("abdullahalmamunx"))
 	waitFor(t, "own name whole", shows("suhailahmedtoha"))
 	waitFor(t, "(you) wrapped, not cut", shows("(you)"))
@@ -390,7 +390,7 @@ func TestPeopleListScrolls(t *testing.T) {
 	waitFor(t, "a scrollbar", shows("┃"))
 	tips := func() bool {
 		txt := screenText(s)
-		return strings.Contains(txt, "/dm name  DM someone") && strings.Contains(txt, "/help  all commands") && strings.Contains(txt, "/people off  hide this")
+		return strings.Contains(txt, "/dm name    DM someone") && strings.Contains(txt, "/help       all commands") && strings.Contains(txt, "/mode base  simple mode")
 	}
 	if !tips() || strings.Contains(screenText(s), "zakaria") {
 		t.Fatalf("before scrolling:\n%s", screenText(s))
@@ -414,5 +414,52 @@ func TestPeopleListScrolls(t *testing.T) {
 	}
 	waitFor(t, "a click opens a DM", shows("DM zakaria> "))
 	s.InjectKey(tcell.KeyCtrlC, 0, tcell.ModNone)
+	<-done
+}
+
+// /mode base is just the chat (no bar, no people list, the plain look);
+// /mode chat brings everything back, skin included.
+func TestBaseMode(t *testing.T) {
+	h := testHub(t, "")
+	friend := testClient(t, h, "friend", "")
+	online(t, friend)
+	s := tcell.NewSimulationScreen("UTF-8")
+	c := NewClient(ClientOpts{Mode: modeJoin, URL: localURL(h.Port()), Nick: "me", Token: deviceToken("base")})
+	done := make(chan error, 1)
+	go func() { done <- runTUI(c, uiOpts{Skin: "irc"}, s) }()
+	waitFor(t, "connected", func() bool { return c.State() == stOnline })
+	shows := func(what string) func() bool { return func() bool { return strings.Contains(screenText(s), what) } }
+	typeLine := func(text string) {
+		for _, r := range text {
+			s.InjectKey(tcell.KeyRune, r, tcell.ModNone)
+		}
+		s.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
+	}
+	waitFor(t, "chat mode", shows("people · 2 here"))
+	friend.Input("hello there")
+	waitFor(t, "irc look", shows("<friend> hello there"))
+	typeLine("/mode base")
+	waitFor(t, "base mode", shows("/mode chat to go back"))
+	txt := screenText(s)
+	if strings.Contains(txt, "people · ") || strings.Contains(txt, "here · Tab next chat") || strings.Contains(txt, "/help       all commands") {
+		t.Fatalf("base mode still shows the sides:\n%s", txt)
+	}
+	waitFor(t, "plain look", shows("friend   hello there"))
+	typeLine("/mode chat")
+	waitFor(t, "chat mode again", shows("people · 2 here"))
+	waitFor(t, "irc look again", shows("<friend> hello there"))
+	s.InjectKey(tcell.KeyCtrlC, 0, tcell.ModNone)
+	<-done
+
+	// starting in base mode (--base)
+	s2 := tcell.NewSimulationScreen("UTF-8")
+	c2 := NewClient(ClientOpts{Mode: modeJoin, URL: localURL(h.Port()), Nick: "me2", Token: deviceToken("base2")})
+	go func() { done <- runTUI(c2, uiOpts{Skin: "plain", Base: true}, s2) }()
+	waitFor(t, "connected", func() bool { return c2.State() == stOnline })
+	waitFor(t, "prompt", func() bool { return strings.Contains(screenText(s2), "#general> ") })
+	if txt := screenText(s2); strings.Contains(txt, "people · ") || strings.Contains(txt, "here · Tab") {
+		t.Fatalf("--base shows the sides:\n%s", txt)
+	}
+	s2.InjectKey(tcell.KeyCtrlC, 0, tcell.ModNone)
 	<-done
 }

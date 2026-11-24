@@ -24,6 +24,7 @@ type uiOpts struct {
 	Wipe     bool
 	NoBar    bool // hide the chat bar
 	NoPeople bool // hide the people list (shown by default when there's room)
+	Base     bool // base mode: just the chat (no bar, no people list, plain look)
 	NoColor  bool
 }
 
@@ -81,6 +82,7 @@ type tui struct {
 	peekY   int
 
 	peopleOff int      // how far the people list is scrolled
+	baseSkin  string   // the skin to go back to when leaving base mode
 	panel     panelHit // where the people list is, for the wheel and clicks
 }
 
@@ -107,6 +109,9 @@ func runTUI(c *Client, o uiOpts, s tcell.Screen) error {
 	}
 	if !validSkin(o.Skin) {
 		o.Skin = "plain"
+	}
+	if o.Base {
+		o.NoBar, o.NoPeople, o.Skin = true, true, "plain"
 	}
 	u := &tui{c: c, s: s, o: o, decoy: newDecoy()}
 	s.SetStyle(tcell.StyleDefault)
@@ -283,6 +288,30 @@ func (u *tui) key(ev *tcell.EventKey) {
 	}
 }
 
+// setBase switches between base mode (only the chat: no chat bar, no
+// people list, the plain look, like nook's first version) and the normal
+// chat mode. Whatever skin you had comes back with /mode chat.
+func (u *tui) setBase(on bool) {
+	if on == u.o.Base {
+		if on {
+			u.c.Sys("already in base mode · /mode chat to go back")
+		}
+		return
+	}
+	u.o.Base = on
+	if on {
+		u.baseSkin = u.o.Skin
+		u.o.NoBar, u.o.NoPeople, u.o.Skin = true, true, "plain"
+		u.c.Sys("base mode: just the chat · Tab next chat · /mode chat to go back")
+		return
+	}
+	u.o.NoBar, u.o.NoPeople = false, false
+	if u.baseSkin != "" {
+		u.o.Skin = u.baseSkin
+	}
+	u.c.Sys("chat mode · /mode base for just the chat")
+}
+
 func (u *tui) cycle(dir int) {
 	u.c.Cycle(dir)
 	u.scroll = 0
@@ -435,6 +464,16 @@ func (u *tui) submit() {
 			return
 		case "dim", "ghost":
 			u.o.Ghost = !u.o.Ghost
+			return
+		case "mode", "base", "simple":
+			switch {
+			case cmd != "mode" || arg == "base" || arg == "simple" || arg == "plain":
+				u.setBase(true)
+			case arg == "chat" || arg == "full" || arg == "normal":
+				u.setBase(false)
+			default:
+				u.c.Sys("/mode base: just the chat, nothing at the sides · /mode chat: chat bar and people list")
+			}
 			return
 		case "people", "panel":
 			switch arg {
@@ -696,7 +735,7 @@ func (u *tui) drawBar(v *View, w, y int) {
 // peopleWidth: wide enough for the shortcuts and most names (longer ones
 // wrap), never more than a third of the screen.
 func peopleWidth(v *View, w int) int {
-	pw := 24 // "/people off  hide this" on one row
+	pw := 26 // the shortcuts, lined up, on one row each
 	for _, p := range v.People {
 		n := uniseg.StringWidth(p.Nick) + 6
 		if p.ID == v.MeID {
@@ -791,7 +830,7 @@ func (u *tui) drawPeople(v *View, x0, top, w, bottom int) {
 var panelTips = [][2]string{
 	{"/dm name", "DM someone"},
 	{"/help", "all commands"},
-	{"/people off", "hide this"},
+	{"/mode base", "simple mode"},
 }
 
 // drawTips puts a box of shortcuts at the bottom of the people list: a
@@ -802,9 +841,13 @@ var panelTips = [][2]string{
 func (u *tui) drawTips(x0, top, w, bottom int) int {
 	avail := imax(4, w-x0-2)
 	type tipRow struct{ cmd, what string }
+	cw := 0 // the commands' column, so what they do lines up
+	for _, t := range panelTips {
+		cw = imax(cw, uniseg.StringWidth(t[0]))
+	}
 	block := func(t [2]string) []tipRow {
-		if uniseg.StringWidth(t[0])+2+uniseg.StringWidth(t[1]) <= avail {
-			return []tipRow{{t[0], t[1]}}
+		if cw+2+uniseg.StringWidth(t[1]) <= avail {
+			return []tipRow{{pad(t[0], cw), t[1]}}
 		}
 		rows := []tipRow{{t[0], ""}}
 		for _, r := range wrapWords(t[1], avail-2) {

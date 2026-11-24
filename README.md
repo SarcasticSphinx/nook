@@ -106,7 +106,8 @@ needs two laptops: one computer can't link to itself.
 | `/r text` | reply to whoever messaged you last, without leaving the chat you're in |
 | `/join #room`, `/leave` | join or create a room, leave it (`#general` is everyone) |
 | `/who`, `/rooms` | everyone connected, who's away, and their rooms; all rooms |
-| `/people off` | hide the list of everyone on the right. It's on by default when the window is wide enough: long names wrap onto a second row, a box of shortcuts (`/dm name`, `/help`, `/people off`) stays at the bottom, and when there are more people than rows the list scrolls under the mouse wheel with a scrollbar. Click someone to DM them. `/people on` brings it back; `--no-people` starts without it. |
+| `/mode base` | base mode: just the chat, the way nook first looked: no chat bar, no people list, the plain look. `/mode chat` brings it all back (with your skin). `--base` starts in base mode. |
+| `/people off` | hide the list of everyone on the right. It's on by default when the window is wide enough: long names wrap onto a second row, a box of shortcuts (`/dm name`, `/help`, `/mode base`) stays at the bottom, and when there are more people than rows the list scrolls under the mouse wheel with a scrollbar. Click someone to DM them. `/people on` brings it back; `--no-people` starts without it. |
 | `@name` | mention someone, like Messenger or WhatsApp: type `@` and Tab finishes the name (`@everyone` for the whole room). It's highlighted for them, and if they're in another chat their bar shows `#general @1`. Just writing their name without `@` doesn't count. |
 | `/nick name` | change your name: everyone sees "rafi is now known as rafa", and your old messages show the new name |
 | `/send path` | share a file with the chat you're in. Or drag the file into the terminal window and press Enter. |
