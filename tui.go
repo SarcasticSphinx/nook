@@ -79,6 +79,15 @@ type tui struct {
 	tabs    []tabHit  // where each chat is on the bar, for clicks
 	peekKey string    // the chat the "new in ..." row points to
 	peekY   int
+
+	peopleOff int      // how far the people list is scrolled
+	panel     panelHit // where the people list is, for the wheel and clicks
+}
+
+type panelHit struct {
+	x0, top, bottom int      // the list's rows (between the header and the tips)
+	rows            int      // rows the whole list needs
+	nicks           []string // who is on each row shown ("" = you, or nobody)
 }
 
 type tabHit struct {
@@ -309,11 +318,21 @@ func (u *tui) mouse(ev *tcell.EventMouse) {
 		}
 		return
 	}
+	inPanel := !u.o.NoPeople && u.panel.x0 > 0 && x >= u.panel.x0
 	switch {
+	case inPanel && b&tcell.WheelUp != 0: // the wheel over the people list scrolls it
+		u.peopleOff = imax(0, u.peopleOff-2)
+	case inPanel && b&tcell.WheelDown != 0:
+		u.peopleOff += 2 // drawPeople keeps it in range
 	case b&tcell.WheelUp != 0:
 		u.scroll += 3
 	case b&tcell.WheelDown != 0:
 		if u.scroll -= 3; u.scroll < 0 {
+			u.scroll = 0
+		}
+	case inPanel && b&tcell.Button1 != 0:
+		if i := y - u.panel.top; i >= 0 && i < len(u.panel.nicks) && u.panel.nicks[i] != "" {
+			u.c.Input("/dm " + u.panel.nicks[i])
 			u.scroll = 0
 		}
 	case b&tcell.Button1 != 0:
@@ -607,6 +626,7 @@ func (u *tui) draw() {
 		u.put(x, bottom, w, hint, u.style(part{kind: pMeta}))
 	}
 	mw := w
+	u.panel = panelHit{}
 	if !u.o.NoPeople && w >= 60 {
 		pw := peopleWidth(&v, w)
 		mw = w - pw - 1
@@ -673,10 +693,10 @@ func (u *tui) drawBar(v *View, w, y int) {
 	}
 }
 
-// peopleWidth: wide enough for most names (longer ones wrap), never more
-// than a third of the screen.
+// peopleWidth: wide enough for the shortcuts and most names (longer ones
+// wrap), never more than a third of the screen.
 func peopleWidth(v *View, w int) int {
-	pw := 18
+	pw := 24 // "/people off  hide this" on one row
 	for _, p := range v.People {
 		n := uniseg.StringWidth(p.Nick) + 6
 		if p.ID == v.MeID {
@@ -690,52 +710,137 @@ func peopleWidth(v *View, w int) int {
 }
 
 // drawPeople lists everyone on the right: who is here, then who has gone.
-// A long name wraps onto the next row instead of being cut off, and the
-// last row says how to hide the list.
+// Long names wrap onto the next row instead of being cut. A box of
+// shortcuts stays at the bottom; when there are more people than rows,
+// the list above it scrolls (mouse wheel over it) and shows a scrollbar.
+// Clicking someone opens a DM with them.
 func (u *tui) drawPeople(v *View, x0, top, w, bottom int) {
 	meta := u.style(part{kind: pMeta})
 	for y := top; y < bottom; y++ {
 		u.s.SetContent(x0, y, '|', nil, meta)
 	}
-	end := bottom
-	hint := "/people off: hide"
-	if bottom-top >= 6 {
-		end = bottom - 1
-		u.put(x0+2, bottom-1, w, hint, meta.Dim(true))
-	}
-	y := top
-	avail := imax(4, w-x0-4) // after "| " and "* "
-	entry := func(mark, text string, st tcell.Style) {
-		for i, r := range wrapWords(text, avail) {
-			if y >= end {
-				return
-			}
-			m := "  "
-			if i == 0 {
-				m = mark
-			}
-			u.put(x0+2, y, w, m+r, st)
-			y++
-		}
-	}
+	end := u.drawTips(x0, top, w, bottom)
 	here := 0
 	for _, p := range v.People {
 		if p.On {
 			here++
 		}
 	}
-	entry("", fmt.Sprintf("people · %d here", here), u.style(part{kind: pText}))
+	u.put(x0+2, top, w, fmt.Sprintf("people · %d here", here), u.style(part{kind: pText}))
+
+	// every row of the list, so it can scroll
+	type prow struct {
+		text string
+		st   tcell.Style
+		nick string // who a click on this row opens a DM with
+	}
+	var rows []prow
+	avail := imax(4, w-x0-6) // after "| ", "* ", and room for the scrollbar
 	for _, p := range v.People {
 		name := p.Nick
 		if p.ID == v.MeID {
 			name += " (you)"
 		}
+		st, mark := meta, "  "
 		if p.On {
-			entry("* ", name, u.style(part{kind: pName, who: p.ID}))
-		} else {
-			entry("  ", name, meta)
+			st, mark = u.style(part{kind: pName, who: p.ID}), "* "
+		}
+		nick := p.Nick
+		if p.ID == v.MeID {
+			nick = ""
+		}
+		for i, r := range wrapWords(name, avail) {
+			if i > 0 {
+				mark = "  "
+			}
+			rows = append(rows, prow{mark + r, st, nick})
 		}
 	}
+	area := end - top - 1
+	if area < 1 {
+		return
+	}
+	u.panel = panelHit{x0: x0, top: top + 1, bottom: end, rows: len(rows)}
+	if u.peopleOff = imin(u.peopleOff, imax(0, len(rows)-area)); u.peopleOff < 0 {
+		u.peopleOff = 0
+	}
+	u.panel.nicks = make([]string, 0, area)
+	for i := 0; i < area && u.peopleOff+i < len(rows); i++ {
+		r := rows[u.peopleOff+i]
+		u.put(x0+2, top+1+i, w-1, r.text, r.st)
+		u.panel.nicks = append(u.panel.nicks, r.nick)
+	}
+	if len(rows) > area { // a simple scrollbar on the right edge
+		thumb := imax(1, area*area/len(rows))
+		pos := 0
+		if len(rows) > area {
+			pos = u.peopleOff * (area - thumb) / (len(rows) - area)
+		}
+		for i := 0; i < area; i++ {
+			ch, st := '│', meta
+			if i >= pos && i < pos+thumb {
+				ch, st = '┃', u.style(part{kind: pText})
+			}
+			u.s.SetContent(w-1, top+1+i, ch, nil, st)
+		}
+	}
+}
+
+// panelTips: the shortcuts under the people list, most useful last (the
+// last one stays even when the window is very short).
+var panelTips = [][2]string{
+	{"/dm name", "DM someone"},
+	{"/help", "all commands"},
+	{"/people off", "hide this"},
+}
+
+// drawTips puts a box of shortcuts at the bottom of the people list: a
+// line across, then each command in its own colour with what it does (on
+// the next row when the list is narrow). It is the same however many
+// people there are; only a very short window drops some. It returns the
+// row where it starts.
+func (u *tui) drawTips(x0, top, w, bottom int) int {
+	avail := imax(4, w-x0-2)
+	type tipRow struct{ cmd, what string }
+	block := func(t [2]string) []tipRow {
+		if uniseg.StringWidth(t[0])+2+uniseg.StringWidth(t[1]) <= avail {
+			return []tipRow{{t[0], t[1]}}
+		}
+		rows := []tipRow{{t[0], ""}}
+		for _, r := range wrapWords(t[1], avail-2) {
+			rows = append(rows, tipRow{"", "  " + r})
+		}
+		return rows
+	}
+	var rows []tipRow
+	for i := len(panelTips) - 1; i >= 0; i-- {
+		b := block(panelTips[i])
+		// keep the header, three people rows and the line across
+		if len(rows)+len(b) > bottom-top-5 {
+			if len(rows) == 0 {
+				return bottom // too short for any
+			}
+			break
+		}
+		rows = append(b, rows...)
+	}
+	start := bottom - len(rows) - 1
+	meta := u.style(part{kind: pMeta})
+	u.put(x0+2, start, w, strings.Repeat("─", avail), meta)
+	cmd := u.style(part{kind: pCmd}).Bold(true)
+	text := u.style(part{kind: pText})
+	for i, r := range rows {
+		y := start + 1 + i
+		x := x0 + 2
+		if r.cmd != "" {
+			x = u.put(x, y, w, r.cmd, cmd)
+			if r.what != "" {
+				x = u.put(x, y, w, "  ", text)
+			}
+		}
+		u.put(x, y, w, r.what, text)
+	}
+	return start
 }
 
 // wrapWords breaks text into rows of at most n columns, at spaces where it

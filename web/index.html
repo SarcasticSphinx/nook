@@ -1239,7 +1239,7 @@ body.dec{background:var(--gbg,#f7f7f7)}
           if (r) r.members = r.members.filter(function (id) { return id !== S.me.id; });
           fixTarget(); toast('left #' + j.room); view().all(); side();
         });
-      case 'dm': case 'msg': case 'm': case 'w': case 'query':
+      case 'dm': case 'tm': case 'msg': case 'm': case 'w': case 'query':
         sp = arg.indexOf(' ');
         var whom = (sp < 0 ? arg : arg.slice(0, sp)).replace(/^@/, ''), text = sp < 0 ? '' : arg.slice(sp + 1).trim();
         if (!whom) return sys('usage: /dm name [message]');

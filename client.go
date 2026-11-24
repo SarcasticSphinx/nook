@@ -979,7 +979,7 @@ func (c *Client) Input(line string) {
 		c.join(arg)
 	case "leave", "part":
 		c.leave(arg)
-	case "dm", "msg", "m", "w", "query":
+	case "dm", "tm", "msg", "m", "w", "query":
 		c.dm(arg)
 	case "r", "reply":
 		c.reply(arg)

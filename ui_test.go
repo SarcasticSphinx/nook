@@ -200,6 +200,11 @@ func TestChatsStaySeparate(t *testing.T) {
 		s.InjectMouse(5, 10, tcell.WheelDown, tcell.ModNone)
 	}
 	waitFor(t, "back at the bottom", shows("in general"))
+	for i := 0; i < 300 && strings.Contains(screenText(s), "^ #general> "); i++ {
+		s.InjectMouse(5, 10, tcell.WheelDown, tcell.ModNone) // all the way down
+		time.Sleep(5 * time.Millisecond)
+	}
+	waitFor(t, "at the very bottom", shows("\n#general> "))
 
 	// /see: a text file opens inside the window, nothing is saved
 	src := filepath.Join(t.TempDir(), "notes.txt")
@@ -207,7 +212,10 @@ func TestChatsStaySeparate(t *testing.T) {
 	friend.Input("/g")
 	waitFor(t, "friend back in general", func() bool { return target(friend) == "#general" })
 	friend.Input("/send " + src)
-	waitFor(t, "file offered with /see", shows("/see 1  /get 1"))
+	waitFor(t, "file offered with /see and /get", func() bool {
+		txt := screenText(s)
+		return strings.Contains(txt, "/see 1") && strings.Contains(txt, "/get 1")
+	})
 	typeText("/see 1")
 	s.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 	waitFor(t, "file shown", shows("    indented line"))
@@ -345,7 +353,9 @@ func TestPeopleList(t *testing.T) {
 	waitFor(t, "connected", func() bool { return c.State() == stOnline })
 	shows := func(what string) func() bool { return func() bool { return strings.Contains(screenText(s), what) } }
 	waitFor(t, "people list by default", shows("people · 2 here"))
-	waitFor(t, "hint", shows("/people off: hide"))
+	waitFor(t, "tips", shows("/people off  hide this"))
+	waitFor(t, "dm tip", shows("/dm name  DM someone"))
+	waitFor(t, "help tip", shows("/help  all commands"))
 	waitFor(t, "long name whole", shows("abdullahalmamunx"))
 	waitFor(t, "own name whole", shows("suhailahmedtoha"))
 	waitFor(t, "(you) wrapped, not cut", shows("(you)"))
@@ -355,6 +365,54 @@ func TestPeopleList(t *testing.T) {
 	s.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 	waitFor(t, "hidden", func() bool { return !strings.Contains(screenText(s), "people · 2 here") })
 	waitFor(t, "how to bring it back", shows("/people on to show it again"))
+	s.InjectKey(tcell.KeyCtrlC, 0, tcell.ModNone)
+	<-done
+}
+
+// With more people than rows, the list scrolls under the wheel with a
+// scrollbar, the shortcuts box stays as it is, and a click opens a DM.
+func TestPeopleListScrolls(t *testing.T) {
+	h := testHub(t, "")
+	var cs []*Client
+	for _, n := range []string{"mirza", "zakaria", "nadia", "rafi", "tanvir", "abdul", "sumaiya", "fahim", "tasnim", "rakib", "imran", "nusrat"} {
+		cs = append(cs, testClient(t, h, n, ""))
+	}
+	online(t, cs...)
+	s := tcell.NewSimulationScreen("UTF-8")
+	c := NewClient(ClientOpts{Mode: modeJoin, URL: localURL(h.Port()), Nick: "me", Token: deviceToken("scroll")})
+	done := make(chan error, 1)
+	go func() { done <- runTUI(c, uiOpts{Skin: "plain"}, s) }()
+	waitFor(t, "connected", func() bool { return c.State() == stOnline })
+	shows := func(what string) func() bool { return func() bool { return strings.Contains(screenText(s), what) } }
+	waitFor(t, "everyone", shows("people · 13 here"))
+	s.SetSize(80, 14)
+	s.PostEvent(tcell.NewEventResize(80, 14))
+	waitFor(t, "a scrollbar", shows("┃"))
+	tips := func() bool {
+		txt := screenText(s)
+		return strings.Contains(txt, "/dm name  DM someone") && strings.Contains(txt, "/help  all commands") && strings.Contains(txt, "/people off  hide this")
+	}
+	if !tips() || strings.Contains(screenText(s), "zakaria") {
+		t.Fatalf("before scrolling:\n%s", screenText(s))
+	}
+	for i := 0; i < 10; i++ {
+		s.InjectMouse(75, 6, tcell.WheelDown, tcell.ModNone)
+	}
+	waitFor(t, "the end of the list", shows("* zakaria"))
+	if !tips() {
+		t.Fatalf("the shortcuts moved:\n%s", screenText(s))
+	}
+	if !strings.Contains(screenText(s), "#general> ") || target(c) != "#general" {
+		t.Fatal("scrolling the list moved the chat")
+	}
+	rows := strings.Split(screenText(s), "\n")
+	for y, r := range rows {
+		if strings.Contains(r, "* zakaria") {
+			s.InjectMouse(strings.Index(r, "zakaria"), y, tcell.Button1, tcell.ModNone)
+			s.InjectMouse(strings.Index(r, "zakaria"), y, tcell.ButtonNone, tcell.ModNone)
+		}
+	}
+	waitFor(t, "a click opens a DM", shows("DM zakaria> "))
 	s.InjectKey(tcell.KeyCtrlC, 0, tcell.ModNone)
 	<-done
 }

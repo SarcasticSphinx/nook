@@ -61,7 +61,7 @@ func (u *tui) complete() {
 		for _, c := range commandNames {
 			pool = append(pool, "/"+c)
 		}
-	case cmd == "dm" || cmd == "msg" || cmd == "w" || cmd == "m":
+	case cmd == "dm" || cmd == "tm" || cmd == "msg" || cmd == "w" || cmd == "m":
 		if start == len("/"+cmd+" ") {
 			pool = names()
 		}
