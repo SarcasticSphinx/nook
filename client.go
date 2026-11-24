@@ -117,6 +117,8 @@ type Client struct {
 	lockedNote      bool
 	verbose         bool
 	onChange        func()
+	sayq            chan sayJob // messages go out one at a time, in order
+	slowNote        time.Time   // when "slow down" was last shown
 
 	hc, sc *http.Client
 	wake   chan struct{}
@@ -131,7 +133,7 @@ func NewClient(o ClientOpts) *Client {
 		MaxIdleConnsPerHost:   4,
 		IdleConnTimeout:       time.Minute,
 	}
-	return &Client{
+	c := &Client{
 		o:        o,
 		lock:     lockHash(o.Key),
 		nick:     o.Nick,
@@ -146,6 +148,23 @@ func NewClient(o ClientOpts) *Client {
 		hc:       &http.Client{Transport: tr, Timeout: 6 * time.Second},
 		wake:     make(chan struct{}, 1),
 		disc:     discoverFn,
+		sayq:     make(chan sayJob, 64),
+	}
+	go c.sender()
+	return c
+}
+
+type sayJob struct {
+	base string
+	r    Req
+}
+
+// sender posts messages one after another. Posting each on its own
+// goroutine let two quick lines (a paste in line mode, a script) reach the
+// host in either order.
+func (c *Client) sender() {
+	for j := range c.sayq {
+		c.post(j.base, j.r, nil)
 	}
 }
 
@@ -171,6 +190,7 @@ func (c *Client) Close() {
 		return
 	}
 	c.quit = true
+	close(c.sayq)
 	h, cancel := c.hub, c.cancel
 	c.mu.Unlock()
 	cleanPreviews() // files /see handed to a viewer
@@ -1023,7 +1043,32 @@ func (c *Client) say(to, text string) {
 	case !on:
 		c.Sys("offline · not sent")
 	default:
-		go c.post(base, Req{SID: sid, Op: "say", To: to, Text: text}, nil)
+		c.mu.Lock()
+		queued := false
+		if !c.quit {
+			select {
+			case c.sayq <- sayJob{base, Req{SID: sid, Op: "say", To: to, Text: text}}:
+				queued = true
+			default:
+			}
+		}
+		c.mu.Unlock()
+		if !queued {
+			c.slowDown()
+		}
+	}
+}
+
+// slowDown says "slow down a little" once, not once per message refused.
+func (c *Client) slowDown() {
+	c.mu.Lock()
+	show := time.Since(c.slowNote) > 4*time.Second
+	if show {
+		c.slowNote = time.Now()
+	}
+	c.mu.Unlock()
+	if show {
+		c.Sys(errSlow)
 	}
 }
 
@@ -1041,6 +1086,10 @@ func (c *Client) post(base string, r Req, done func(Resp)) {
 		return
 	}
 	if !out.OK {
+		if out.Err == errSlow {
+			c.slowDown()
+			return
+		}
 		c.Sys(out.Err)
 		if out.Err == errNotConnected { // the hub forgot us: reconnect
 			c.mu.Lock()

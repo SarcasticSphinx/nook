@@ -1085,6 +1085,19 @@ func (u *tui) wrap(p para, width int) []row {
 		default:
 			if i > 0 {
 				rows[i].x = indent
+				if p.rail != "" && indent > len([]rune(p.rail)) {
+					// keep the box's left edge on wrapped rows too
+					st := u.style(part{p.rail, pMeta, ""})
+					var lead []cell
+					for _, r := range p.rail {
+						lead = append(lead, cell{r: []rune{r}, w: 1, st: st})
+					}
+					for len(lead) < indent {
+						lead = append(lead, cell{r: []rune{' '}, w: 1, st: st})
+					}
+					rows[i].cells = append(lead, rows[i].cells...)
+					rows[i].x = 0
+				}
 			}
 		}
 	}

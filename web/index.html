@@ -103,6 +103,8 @@ body.g #term,body.g #main{opacity:.3}
 .av.sq{border-radius:17px;font-size:20px}
 .av.sm{width:32px;height:32px;font-size:13px;border-width:2px}.av.sm.sq{border-radius:11px}
 .av.xl{width:84px;height:84px;font-size:32px;border-width:4px}.av.xl.sq{border-radius:28px}
+.av.pic{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;font-weight:400;font-size:25px;line-height:1}
+.av.sm.pic{font-size:17px}.av.xl.pic{font-size:44px}
 .av .dot{position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:var(--ok);border:2.5px solid var(--bg)}
 #meBox{display:flex;align-items:center;gap:12px;padding:14px 18px 18px 22px}
 #meBox .mid{flex:1;min-width:0}#meBox .nm{font-weight:650}#meBox .st{font-size:12px;color:var(--mute)}
@@ -218,7 +220,7 @@ body.drag #drop{display:grid;animation:fade .15s}
 @media (max-width:760px){
   #app{margin:0;border-radius:0;height:100%;height:100dvh;box-shadow:none}
   #side{width:100%}#side::after{display:none}
-  #main{position:fixed;inset:0;transform:translateX(100%);transition:transform .34s var(--ease)}
+  #main{position:fixed;inset:0;z-index:4;transform:translateX(100%);transition:transform .34s var(--ease)}
   body.inchat #main{transform:none}
   #backBtn{display:inline-grid}
   header{padding-left:12px;min-height:70px}
@@ -645,11 +647,23 @@ body.is-playing .mobile-controls {
   function pad(s, n) { while (s.length < n) s += ' '; return s; }
   function nickOf(id) { var u = S.users[id]; return u ? u.nick : '?'; }
   function nameOf(l) { if (l.mine) return 'you'; var u = S.users[l.from]; return u ? u.nick : l.nick; }
-  function initial(n) { return (n || '?').charAt(0).toUpperCase(); }
   function hue(s) { var h = 0; s = s || ''; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h % 360; }
 
+  // Everyone gets a little animal, bird or person instead of their initial.
+  // It comes from their id, so it's the same on every screen and every visit.
+  var CRITTERS = ['🦁', '🐯', '🐻', '🐼', '🐨', '🦊', '🐺', '🐱', '🐶', '🐰', '🐹', '🐭', '🐮', '🐷',
+    '🐸', '🐵', '🦄', '🐴', '🦓', '🦒', '🐘', '🦏', '🦛', '🐪', '🦘', '🦔', '🦇', '🐿️',
+    '🐢', '🐊', '🦎', '🐍', '🐙', '🦑', '🦀', '🐬', '🐳', '🦈', '🐠', '🐝', '🦋', '🐞', '🐌',
+    '🐦', '🦉', '🦅', '🦆', '🐧', '🦜', '🦚', '🦩', '🐔', '🐤', '🦢',
+    '🧑', '👩', '👨', '🧔', '👵', '👴', '👧', '👦', '👱', '🧓'];
+  function critter(id) {
+    var h = 7; id = id || '';
+    for (var i = 0; i < id.length; i++) h = (h * 131 + id.charCodeAt(i)) >>> 0;
+    return CRITTERS[h % CRITTERS.length];
+  }
   function avatar(id, text, sq, size, dot) {
-    var a = el('div', 'av' + (sq ? ' sq' : '') + (size ? ' ' + size : ''), sq ? '#' : initial(text));
+    var a = el('div', 'av' + (sq ? ' sq' : ' pic') + (size ? ' ' + size : ''), sq ? '#' : critter(id));
+    if (!sq) { a.setAttribute('role', 'img'); a.setAttribute('aria-label', text || ''); a.title = text || ''; }
     a.style.setProperty('--h', hue(id));
     if (dot) a.appendChild(el('span', 'dot'));
     return a;
@@ -1280,7 +1294,12 @@ body.is-playing .mobile-controls {
     fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        if (!j.ok) { if (!quiet) sys(j.err || 'failed'); if (j.err === 'not connected') connect(); if (fail) fail(); return; }
+        if (!j.ok) {
+          var slow = j.err === 'slow down a little', now = Date.now();
+          if (!quiet && !(slow && now - (S.slowAt || 0) < 4000)) sys(j.err || 'failed');
+          if (slow) S.slowAt = now;
+          if (j.err === 'not connected') connect(); if (fail) fail(); return;
+        }
         if (done) done(j);
       }, function () { if (!quiet) sys('not sent · connection problem'); if (fail) fail(); });
   }
@@ -1597,7 +1616,12 @@ body.is-playing .mobile-controls {
 
   // ---- keys and buttons ----
   function decoy(on) {
+    var logs = [$('msgs'), $('tlog')];
+    // While hidden the chat isn't laid out, so new messages can't scroll it:
+    // remember who was at the bottom and take them to the newest on return.
+    if (on && !body.classList.contains('dec')) S.stuck = logs.map(function (m) { return m.scrollHeight - m.scrollTop - m.clientHeight < 160; });
     body.classList.toggle('dec', on);
+    if (!on && S.stuck) { logs.forEach(function (m, i) { if (S.stuck[i]) m.scrollTop = m.scrollHeight; }); S.stuck = null; }
     if (on) { $('tin').blur(); $('cin').blur(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } else view().focus();
     game.show(on);
   }
@@ -1680,10 +1704,16 @@ body.is-playing .mobile-controls {
   function send() { var v = cin.value; cin.value = ''; grow(); hideSugg(); submit(v); }
   $('composer').addEventListener('submit', function (e) { e.preventDefault(); send(); });
   var msgs = $('msgs');
+  var atEnd = true;
   msgs.addEventListener('scroll', function () {
     if (msgs.scrollTop < 80) loadOlder();
+    atEnd = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 40;
     $('jump').classList.toggle('on', msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight > 500);
   });
+  // A resized window (or a phone turned sideways) keeps you at the newest message.
+  if (window.ResizeObserver) new ResizeObserver(function () {
+    if (atEnd && msgs.clientHeight) msgs.scrollTop = msgs.scrollHeight;
+  }).observe(msgs);
   $('jump').onclick = function () { msgs.scrollTo({ top: msgs.scrollHeight, behavior: 'smooth' }); };
   var TABS = ['all', 'unread', 'mentions'], tabT = 0;
   function moveInd(instant) {

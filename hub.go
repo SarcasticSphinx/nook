@@ -32,6 +32,7 @@ const (
 	general     = "general"
 
 	errNotConnected = "not connected"
+	errSlow         = "slow down a little"
 )
 
 var (
@@ -423,7 +424,7 @@ func (h *Hub) index(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy",
-		"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src *; base-uri 'none'; form-action 'none'")
+		"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; frame-src blob:; connect-src *; base-uri 'none'; form-action 'none'")
 	io.WriteString(w, indexHTML)
 }
 
@@ -671,7 +672,7 @@ func (h *Hub) do(req Req) Resp {
 			return Resp{Err: "empty message"}
 		}
 		if !u.allow(time.Now()) {
-			return Resp{Err: "slow down a little"}
+			return Resp{Err: errSlow}
 		}
 		m := Msg{TS: nowMs(), From: u.id, Nick: u.nick, Text: text}
 		switch {

@@ -43,7 +43,8 @@ const (
 type para struct {
 	parts []part
 	align int
-	max   int // wrap at this % of the screen width (chat bubbles); 0 = full width
+	max   int    // wrap at this % of the screen width (chat bubbles); 0 = full width
+	rail  string // drawn again at the start of each wrapped row (the /help box's left edge)
 }
 
 var skins = []string{"plain", "chat", "irc", "compact", "log", "code", "json"}
@@ -127,7 +128,7 @@ func fmtLine(l, prev *Line, v *View, skin string) []para {
 			case f[1] != "":
 				ps = append(ps, part{pad(f[1], 16), pCmd, ""}, part{f[2], pText, ""})
 			}
-			return []para{{parts: ps}}
+			return []para{{parts: ps, rail: strings.TrimRight(f[0], " ")}}
 		}
 		k := pMeta
 		if !strings.HasPrefix(l.Text, " ") {

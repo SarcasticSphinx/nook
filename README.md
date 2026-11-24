@@ -163,7 +163,10 @@ button at the top right or `/ui chat` and `/ui term`:
   or dark theme. All / Unread / Mentions tabs over the chat list (Mentions
   counts messages that name you); the last message, time and unread count
   for each chat; who's here along the top; bubbles grouped by person, each
-  name in its own colour; "rafi is typing"; picture previews; files by
+  name in its own colour. Instead of initials, everyone's picture is a
+  little animal, bird or person (a lion, an owl, a dolphin...), picked from
+  their id, so it's the same on every screen and every time they come back;
+  "rafi is typing"; picture previews; files by
   dragging them onto the page, pasting, or the paperclip, with an eye
   button to look at one (pictures, PDFs and text) without saving it.
   Typing `@` lists the people in the chat to mention; mentions of you are
