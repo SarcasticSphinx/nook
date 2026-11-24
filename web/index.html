@@ -2,158 +2,267 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<meta name="color-scheme" content="light dark">
 <title>notes</title>
 <link rel="icon" href="data:,">
 <style>
-:root{--bg:#faf9f5;--panel:#f3f1ea;--line:#e6e3d9;--fg:#2b2a27;--mute:#8b877d;--accent:#c96442;--accent2:#b5573a;--onaccent:#fff;--bubble:#efece4;--hover:#ebe8de;--dm:#8e5bd6;--ok:#3fa45b;--shadow:0 1px 2px rgba(0,0,0,.05),0 6px 24px rgba(0,0,0,.06);--term-bg:#fff;--term-fg:#2b2b2b;--term-mute:#9b9b9b}
-@media (prefers-color-scheme:dark){:root{--bg:#1f1e1b;--panel:#262521;--line:#34322d;--fg:#ecebe6;--mute:#8f8b82;--accent:#d97757;--accent2:#e08a6d;--bubble:#2f2d29;--hover:#2d2b27;--dm:#b18cf2;--ok:#4fbd6c;--shadow:0 1px 2px rgba(0,0,0,.3),0 6px 24px rgba(0,0,0,.3);--term-bg:#1d1d1d;--term-fg:#cfcfcf;--term-mute:#6c6c6c}}
-*{box-sizing:border-box}
-html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;-webkit-text-size-adjust:100%}
+:root{
+  --bg:#ffffff;--side:#fafafa;--card:#ffffff;--line:#ececee;--fg:#1d1d1f;--mute:#8e8e93;--soft:#636366;
+  --bubble:#f1f1f3;--mine:#e4e9ef;--onmine:#1d1d1f;--hover:#f2f2f4;--sel:#ededf0;
+  --accent:#4a5361;--onaccent:#fff;--focus:#d6d9de;--ok:#5fae7b;
+  --shadow:0 1px 3px rgba(0,0,0,.05);--pop:0 6px 24px rgba(0,0,0,.08);
+  --term-bg:#ffffff;--term-fg:#26262b;--term-mute:#9a9aa3;
+  --nl:42%;--ns:30%;--al:90%;--as:26%;--at:38%;
+  --r:20px;--spring:cubic-bezier(.2,.9,.3,1.08);--ease:cubic-bezier(.3,.7,.2,1)
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121214;--side:#161618;--card:#1c1c1f;--line:#252528;--fg:#e8e8ea;--mute:#86868b;--soft:#a1a1a6;
+  --bubble:#222225;--mine:#2b323b;--onmine:#e8e8ea;--hover:#1f1f22;--sel:#242428;
+  --accent:#3c4552;--onaccent:#e8e8ea;--focus:#34343a;--ok:#5a9d72;
+  --shadow:0 1px 3px rgba(0,0,0,.3);--pop:0 8px 28px rgba(0,0,0,.4);
+  --term-bg:#111113;--term-fg:#d2d2d6;--term-mute:#6d6d76;
+  --nl:68%;--ns:28%;--al:24%;--as:16%;--at:72%
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
-.ic{display:inline-flex;width:18px;height:18px}.ic svg{width:100%;height:100%}
-body.term #chat,body.chat #term,body.dec #chat,body.dec #term{display:none}
+input,textarea{font:inherit;color:inherit}
+.ic{display:inline-flex;width:20px;height:20px;flex:none}.ic svg{width:100%;height:100%}
+body.term #app,body.chat #term,body.dec #app,body.dec #term,body.dec #modal{display:none!important}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--mute) 35%,transparent);border-radius:10px;border:3px solid transparent;background-clip:content-box}
+@keyframes rise{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes popin{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+@keyframes slide{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-4px);opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 
-/* ---- terminal look ---- */
-#term{display:flex;flex-direction:column;height:100%;background:var(--term-bg);color:var(--term-fg);font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+/* ---------- terminal look ---------- */
+#term{display:flex;flex-direction:column;height:100%;background:var(--term-bg);color:var(--term-fg);font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
 #tlog{flex:1;overflow-y:auto;padding:12px 16px 4px}
 #tlog .l{display:flex;gap:1ch}
 #tlog .h{flex:none;color:var(--term-mute);white-space:pre}
 #tlog .t{flex:1;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
-#tlog .o .t,#tlog .s .t{color:var(--term-mute)}
+#tlog .o .t,#tlog .s .t,#tlog .top{color:var(--term-mute)}
+#tlog .top{text-align:center;padding:4px 0 10px}
 #tlog .n .t{color:#c08a2d;font-style:italic}
-#tlog .dm .h{color:var(--dm)}
-#tlog .raw .t{color:var(--term-mute);white-space:pre}
-#tlog .raw.hd .t{color:var(--term-fg)}
-#tlog a.f{color:#3f8f5a;text-decoration:none;font-weight:600}
+#tlog .dm .h{color:#9a7fb5}
+#tlog .raw .t{white-space:pre-wrap;color:var(--term-mute)}
+#tlog .raw .k{color:#3aa6b9}#tlog .raw .hd{color:#c08a2d;font-weight:700}
+#tlog a{color:#3f8f5a;text-decoration:none;font-weight:600;cursor:pointer}
+#tsug{padding:0 16px;color:var(--term-mute);white-space:pre;overflow:hidden;min-height:0}
+#tsug b{color:var(--term-fg);background:var(--hover)}
 #tbar{display:flex;padding:4px 16px 12px}
 #tprompt{flex:none;color:var(--term-mute);white-space:pre}
 #tin{flex:1;min-width:0;border:0;outline:0;background:transparent;color:inherit;font:inherit;padding:0;margin:0}
-body.g #term,body.g #chat main{opacity:.3}
+body.g #term,body.g #main{opacity:.3}
 
-/* ---- chat look ---- */
-#chat{display:flex;height:100%}
-aside{width:256px;flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 10px;gap:4px;overflow-y:auto}
-.brand{display:flex;align-items:center;gap:8px;font-weight:650;letter-spacing:.2px;padding:2px 8px 10px}
-.brand .logo{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent)}
-.sect{display:flex;align-items:center;justify-content:space-between;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);padding:12px 8px 4px}
-.sect button{width:22px;height:22px;border-radius:6px;color:var(--mute);transition:background .15s,color .15s}
-.sect button:hover{background:var(--hover);color:var(--fg)}
-.item{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:9px;cursor:pointer;transition:background .15s,transform .15s;user-select:none}
-.item:hover{background:var(--hover)}
-.item:active{transform:scale(.98)}
-.item.on{background:var(--hover);font-weight:600}
-.item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hash{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;color:var(--mute);background:var(--bg);border:1px solid var(--line);font-weight:600;font-size:13px}
-.mini{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:650;flex:none}
-.pd{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
-.pd.off{background:transparent;border:1.5px solid var(--mute)}
-.item.away{opacity:.6}
-.badge{margin-left:auto;background:var(--accent);color:var(--onaccent);border-radius:10px;font-size:11px;font-weight:650;padding:1px 7px;animation:pop .2s ease-out}
-#meBox{margin-top:auto;padding:10px 8px 2px;border-top:1px solid var(--line);font-size:13px;color:var(--mute);display:flex;align-items:center;gap:6px}
-#meBox b{color:var(--fg)}
-#meBox button{margin-left:auto;font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
-#meBox button:hover{background:var(--hover)}
-main{flex:1;min-width:0;display:flex;flex-direction:column}
-header{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line);min-height:58px}
+/* ---------- chat look ---------- */
+#app{display:flex;height:100%;height:100dvh;background:var(--bg)}
+#side{width:320px;flex:none;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.stop{display:flex;align-items:center;gap:4px;padding:18px 16px 10px 20px}
+.mark{flex:1;font-size:24px;font-weight:700;letter-spacing:-.045em;line-height:1;color:var(--fg);user-select:none;padding-bottom:3px}
+.ib{width:38px;height:38px;border-radius:50%;display:inline-grid;place-items:center;color:var(--soft);transition:background .18s,color .18s,transform .15s var(--spring)}
+.ib:hover{background:var(--hover);color:var(--fg)}.ib:active{transform:scale(.88)}
+.find{margin:2px 14px 8px;display:flex;align-items:center;gap:8px;background:var(--hover);border-radius:999px;padding:0 14px;height:40px;color:var(--mute);transition:box-shadow .2s,background .2s}
+.find:focus-within{box-shadow:0 0 0 1px var(--focus);background:var(--card)}
+.find input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:15px}
+#active{display:flex;gap:6px;overflow-x:auto;padding:6px 14px 10px;scrollbar-width:none}#active::-webkit-scrollbar{display:none}
+.act{flex:none;width:60px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12px;color:var(--soft);cursor:pointer;animation:rise .35s var(--spring) both}
+.act span:last-child{max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act:hover .av{transform:translateY(-2px)}
+.lbl{font-size:12px;font-weight:650;color:var(--mute);letter-spacing:.04em;text-transform:uppercase;padding:6px 22px 6px}
+#chats{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 8px 8px;min-height:0}
+.row{position:relative;display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:16px;cursor:pointer;transition:background .18s,transform .18s var(--spring);user-select:none;animation:slide .3s var(--ease) both}
+.row:hover{background:var(--hover)}.row:active{transform:scale(.98)}
+.row.on{background:var(--sel)}
+.row .mid{flex:1;min-width:0}
+.row .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .pre{font-size:13px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+.row.un .nm,.row.un .pre{color:var(--fg);font-weight:650}
+.row .end{display:flex;flex-direction:column;align-items:flex-end;gap:5px;font-size:12px;color:var(--mute)}
+.badge{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--accent);color:var(--onaccent);font-size:11.5px;font-weight:700;display:grid;place-items:center;animation:popin .35s var(--spring)}
+.av{position:relative;width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;background:hsl(var(--h),var(--as),var(--al));color:hsl(var(--h),var(--ns),var(--at));font-weight:700;font-size:17px;transition:transform .2s var(--spring);user-select:none}
+.av.sq{border-radius:15px;font-size:19px}
+.av.sm{width:30px;height:30px;font-size:13px}.av.sm.sq{border-radius:10px}
+.av.xl{width:76px;height:76px;font-size:30px}.av.xl.sq{border-radius:26px}
+.av .dot{position:absolute;right:0;bottom:0;width:13px;height:13px;border-radius:50%;background:var(--ok);border:2.5px solid var(--side)}
+main .av .dot{border-color:var(--bg)}
+#meBox{display:flex;align-items:center;gap:10px;padding:12px 14px 14px 18px;border-top:1px solid var(--line)}
+#meBox .mid{flex:1;min-width:0}#meBox .nm{font-weight:650}#meBox .st{font-size:12px;color:var(--mute)}
+#meBox input{width:100%;border:0;outline:0;background:var(--hover);border-radius:10px;padding:5px 9px;font-weight:650}
+
+#main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative;background:var(--bg)}
+header{display:flex;align-items:center;gap:12px;padding:10px 14px 10px 16px;min-height:66px;border-bottom:1px solid var(--line);background:var(--bg);z-index:2}
 header .tt{flex:1;min-width:0}
-#title{font-weight:650;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#sub{font-size:12px;color:var(--mute)}
-.hb{width:34px;height:34px;border-radius:9px;display:inline-grid;place-items:center;color:var(--mute);transition:background .15s,color .15s}
-.hb:hover{background:var(--hover);color:var(--fg)}
-#menuBtn{display:none}
-#msgs{flex:1;overflow-y:auto;padding:18px 18px 8px;scroll-behavior:smooth}
-.grp{display:flex;gap:10px;margin:10px 0 2px;align-items:flex-end}
+#title{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#sub{font-size:12.5px;color:var(--mute);transition:color .2s}
+#sub.on{color:var(--soft)}
+#backBtn{display:none}
+#msgs{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 18px 10px;overscroll-behavior:contain}
+#msgs.swap{animation:fade .28s var(--ease)}
+.intro{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:34px 10px 18px;color:var(--mute);font-size:13.5px;animation:fade .4s}
+.intro b{color:var(--fg);font-size:18px}
+.spin{width:22px;height:22px;margin:18px auto;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--soft);animation:spin .8s linear infinite}
+.day{text-align:center;font-size:12px;font-weight:600;color:var(--mute);margin:18px 0 8px}
+.grp{display:flex;gap:8px;margin-top:10px;align-items:flex-end}
 .grp.me{justify-content:flex-end}
-.av{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-weight:650;font-size:13px}
-.col{display:flex;flex-direction:column;gap:3px;max-width:min(72%,620px);min-width:0}
+.col{display:flex;flex-direction:column;gap:2px;max-width:min(74%,640px);min-width:0}
 .grp.me .col{align-items:flex-end}
-.who{font-size:12px;color:var(--mute);padding:0 6px;display:flex;gap:8px}
-.who .nm{font-weight:650;color:var(--fg)}
-.b{background:var(--bubble);padding:8px 12px;border-radius:16px;border-bottom-left-radius:5px;white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;width:fit-content}
-.grp.me .b{background:var(--accent);color:var(--onaccent);border-radius:16px;border-bottom-right-radius:5px}
-.b.new{animation:pop .22s cubic-bezier(.2,.9,.3,1.2)}
-@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
-.b.file{padding:8px;min-width:230px}
-.frow{display:flex;align-items:center;gap:10px}
-.frow>.ic{width:34px;height:34px;padding:7px;border-radius:9px;background:color-mix(in srgb,currentColor 10%,transparent)}
-.fmeta{flex:1;min-width:0}.fn{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fs{font-size:12px;opacity:.75}
-.dl{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:inherit;background:color-mix(in srgb,currentColor 12%,transparent);transition:transform .15s}
-.dl:hover{transform:scale(1.08)}
-.pv{display:block;max-width:100%;max-height:260px;border-radius:10px;margin-bottom:6px}
-.bar{height:4px;border-radius:2px;background:color-mix(in srgb,currentColor 20%,transparent);margin-top:8px;overflow:hidden}
-.fill{height:100%;width:0;background:currentColor;transition:width .2s}
-.cap{margin-top:6px}
-.sys{align-self:center;margin:10px auto;width:fit-content;max-width:90%;text-align:center;font-size:12px;color:var(--mute);background:var(--panel);border:1px solid var(--line);padding:3px 11px;border-radius:999px}
-.sys.note{color:var(--accent2);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
-.sys.new{animation:pop .25s ease-out}
-.block{margin:10px auto;max-width:640px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre;overflow-x:auto}
-.block .bh{font-weight:700;margin-top:4px}.block .bl{color:var(--mute)}
-.hello{margin:12vh auto 0;max-width:360px;text-align:center;color:var(--mute)}
-.hello b{display:block;color:var(--fg);font-size:20px;margin-bottom:6px}
-#typing{height:22px;padding:0 24px;font-size:12px;color:var(--mute);opacity:0;transition:opacity .2s}
-#typing.on{opacity:1}
-.dots{display:inline-flex;gap:3px;margin-left:4px;vertical-align:middle}
-.dots i{width:5px;height:5px;border-radius:50%;background:var(--mute);animation:blink 1.2s infinite}
-.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
-@keyframes blink{0%,80%,100%{opacity:.3;transform:none}40%{opacity:1;transform:translateY(-3px)}}
-#composer{display:flex;align-items:flex-end;gap:8px;margin:0 16px 16px;padding:8px;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:var(--shadow);transition:border-color .2s,box-shadow .2s}
-#composer:focus-within{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
-#cin{flex:1;resize:none;border:0;outline:0;background:transparent;color:inherit;font:inherit;max-height:160px;padding:7px 4px;line-height:1.4}
-.cb{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;color:var(--mute);transition:background .15s,transform .1s,color .15s}
-.cb:hover{background:var(--hover);color:var(--fg)}
-.cb:active{transform:scale(.92)}
-#sendBtn{background:var(--accent);color:var(--onaccent)}
-#sendBtn:hover{background:var(--accent2);color:var(--onaccent)}
-#drop{position:fixed;inset:12px;border:2px dashed var(--accent);border-radius:18px;background:color-mix(in srgb,var(--bg) 85%,transparent);display:none;place-items:center;font-size:18px;font-weight:600;color:var(--accent);z-index:20;pointer-events:none}
-body.drag #drop{display:grid;animation:pop .15s ease-out}
+.who{font-size:12px;color:var(--mute);padding:0 12px 2px;display:flex;gap:8px}
+.who .nm{font-weight:600;color:hsl(var(--h),var(--ns),var(--nl))}
+.b{background:var(--bubble);padding:9px 14px;border-radius:var(--r);white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;width:fit-content;transform-origin:bottom left}
+.them .b+.b{border-top-left-radius:7px}.them .b:not(:last-child){border-bottom-left-radius:7px}
+.grp.me .b{background:var(--mine);color:var(--onmine);transform-origin:bottom right}
+.me .b+.b{border-top-right-radius:7px}.me .b:not(:last-child){border-bottom-right-radius:7px}
+.b.new{animation:rise .38s var(--spring)}
+.b.emoji{background:none!important;font-size:38px;line-height:1.15;padding:2px 4px}
+.b.file{padding:6px;min-width:240px}
+.frow{display:flex;align-items:center;gap:10px;padding:4px 6px 4px 4px}
+.fi{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:color-mix(in srgb,currentColor 10%,transparent)}
+.fmeta{flex:1;min-width:0}.fn{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fs{font-size:12px;opacity:.72}
+.fa{display:flex;gap:4px}
+.fb{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:inherit;background:color-mix(in srgb,currentColor 12%,transparent);transition:transform .15s var(--spring),background .15s}
+.fb:hover{transform:scale(1.1);background:color-mix(in srgb,currentColor 20%,transparent)}
+.fb .ic{width:18px;height:18px}
+.pv{display:block;max-width:100%;max-height:300px;border-radius:17px;cursor:zoom-in;margin-bottom:4px;animation:fade .3s}
+.bar{height:5px;border-radius:5px;background:color-mix(in srgb,currentColor 20%,transparent);margin:6px 6px 4px;overflow:hidden}
+.fill{height:100%;width:0;background:currentColor;border-radius:5px;transition:width .25s var(--ease)}
+.cap{padding:4px 8px 2px}
+.sys{align-self:center;margin:12px auto;width:fit-content;max-width:90%;text-align:center;font-size:12.5px;color:var(--mute);animation:fade .3s}
+.sys.note{color:var(--soft);font-weight:600}
+.card{margin:12px auto;max-width:560px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px 18px 10px;box-shadow:var(--shadow);animation:rise .35s var(--spring);font-size:14px}
+.card h4{margin:12px 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.card h4:first-child{margin-top:0}
+.card .r{display:flex;gap:12px;padding:4px 0;align-items:baseline}
+.card .r code{flex:none;min-width:118px;font:12.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--fg);cursor:pointer}
+.card .r span{color:var(--soft)}
+.card .p{padding:3px 0;color:var(--soft);white-space:pre-wrap}
+#typing{height:0;overflow:hidden;padding:0 18px;transition:height .25s var(--ease)}
+#typing.on{height:44px}
+.tb{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mute)}
+.tb .dots{display:inline-flex;gap:4px;background:var(--bubble);padding:12px 14px;border-radius:var(--r)}
+.dots i{width:7px;height:7px;border-radius:50%;background:var(--mute);animation:bounce 1.3s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+#composer{display:flex;align-items:flex-end;gap:6px;padding:8px 14px calc(12px + env(safe-area-inset-bottom));position:relative}
+.cbox{flex:1;display:flex;align-items:flex-end;background:var(--hover);border-radius:24px;padding:2px 6px 2px 16px;transition:box-shadow .2s,background .2s;min-width:0}
+.cbox:focus-within{box-shadow:0 0 0 1px var(--focus);background:var(--card)}
+#cin{flex:1;resize:none;border:0;outline:0;background:transparent;max-height:170px;padding:10px 0;line-height:1.4;font-size:15.5px;min-width:0}
+#sendBtn{width:0;margin-left:-6px;height:42px;border-radius:50%;display:grid;place-items:center;overflow:hidden;color:var(--onaccent);background:var(--accent);transform:scale(0);opacity:0;transition:transform .3s var(--spring),opacity .2s,width .25s var(--ease),margin .25s var(--ease);margin-bottom:1px;flex:none}
+#sendBtn.ready{width:42px;margin-left:0;transform:scale(1);opacity:1}
+#sendBtn:active{transform:scale(.88)}
+#attachBtn{margin-bottom:2px}
+#sugg{position:absolute;left:14px;right:14px;bottom:calc(100% - 4px);background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--pop);padding:6px;max-height:280px;overflow-y:auto;display:none;transform-origin:bottom center;animation:rise .2s var(--spring);z-index:5}
+#sugg.on{display:block}
+.sg{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:12px;cursor:pointer}
+.sg code{font:13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--fg);min-width:110px}
+.sg span{color:var(--mute);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sg.sel{background:var(--sel)}
+#jump{position:absolute;right:22px;bottom:84px;width:40px;height:40px;border-radius:50%;background:var(--card);box-shadow:var(--pop);display:grid;place-items:center;color:var(--soft);transform:scale(0);transition:transform .25s var(--spring);z-index:3}
+#jump.on{transform:scale(1)}
+#drop{position:fixed;inset:14px;border:2px dashed var(--mute);border-radius:28px;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(6px);display:none;place-items:center;font-size:19px;font-weight:600;color:var(--soft);z-index:30;pointer-events:none}
+body.drag #drop{display:grid;animation:fade .15s}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;place-items:center;z-index:40;padding:18px;animation:fade .2s}
+#modal.on{display:grid}
+.sheet{background:var(--card);border-radius:26px;box-shadow:var(--pop);width:min(860px,100%);max-height:min(86vh,900px);display:flex;flex-direction:column;overflow:hidden;animation:rise .32s var(--spring)}
+.sheet.small{width:min(400px,100%)}
+.sh{display:flex;align-items:center;gap:10px;padding:14px 12px 12px 20px;border-bottom:1px solid var(--line)}
+.sh .tt{flex:1;min-width:0}.sh .tt b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sh .tt span{font-size:12.5px;color:var(--mute)}
+.sb{overflow:auto;flex:1;min-height:0}
+.sb img{display:block;max-width:100%;max-height:74vh;margin:0 auto}
+.sb pre{margin:0;padding:16px 20px;tab-size:4;font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;counter-reset:ln}
+.sb .msg{padding:40px 20px;text-align:center;color:var(--mute)}
+.ask{padding:20px}.ask b{display:block;font-size:17px;margin-bottom:12px}
+.ask input{width:100%;height:46px;border:0;outline:0;border-radius:14px;background:var(--hover);padding:0 14px;font-size:16px;transition:box-shadow .2s}
+.ask input:focus{box-shadow:0 0 0 1px var(--focus)}
+.btns{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.btn{height:40px;padding:0 18px;border-radius:999px;font-weight:650;background:var(--hover);transition:transform .15s var(--spring),filter .15s}
+.btn.pri{background:var(--accent);color:var(--onaccent)}
+.btn:active{transform:scale(.94)}.btn:hover{filter:brightness(1.05)}
+a.btn{display:inline-grid;place-items:center;text-decoration:none;color:inherit}
+#welcome{position:fixed;inset:0;background:var(--bg);display:none;place-items:center;z-index:35;padding:20px}
+#welcome.on{display:grid}
+.wl{width:min(380px,100%);text-align:center;animation:rise .5s var(--spring)}
+.wl .mark{font-size:56px;margin-bottom:10px;display:inline-block}
+.wl p{color:var(--mute);margin:0 0 22px}
+.wl input{width:100%;height:52px;border:0;outline:0;border-radius:18px;background:var(--hover);padding:0 18px;font-size:17px;text-align:center;transition:box-shadow .2s}
+.wl input:focus{box-shadow:0 0 0 1px var(--focus)}
+.wl .btn{width:100%;height:50px;margin-top:12px;font-size:16px}
+#toast{position:fixed;left:50%;bottom:96px;transform:translate(-50%,20px);opacity:0;background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13.5px;pointer-events:none;transition:opacity .25s,transform .3s var(--spring);z-index:50;max-width:90vw;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
 @media (max-width:760px){
- aside{position:fixed;left:0;top:0;bottom:0;z-index:10;transform:translateX(-105%);transition:transform .22s ease;box-shadow:var(--shadow)}
- body.side aside{transform:none}
- #menuBtn{display:inline-grid}
- .col{max-width:85%}
+  #side{width:100%;border-right:0}
+  #main{position:fixed;inset:0;transform:translateX(100%);transition:transform .34s var(--ease);}
+  body.inchat #main{transform:none}
+  #backBtn{display:inline-grid;margin-left:-6px}
+  header{padding-left:8px}
+  #msgs{padding:6px 10px 8px}
+  .col{max-width:84%}
+  .b.file{min-width:0;width:100%}
+  #jump{bottom:80px;right:14px}
+  .card .r{flex-direction:column;gap:0}
 }
-#d{display:none;max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem 4rem;font:16px/1.65 Georgia,"Times New Roman",serif;color:var(--fg)}
+#d{display:none;max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem 4rem;font:16px/1.65 Georgia,"Times New Roman",serif;color:var(--fg);height:100%;overflow:auto}
 #d h1{font-size:1.6rem;font-weight:600;margin:0 0 .2rem}
 #d h2{font-size:1.1rem;margin:1.6rem 0 .3rem}
 #d p,#d li{margin:.35rem 0}
 #d code{font:.88em ui-monospace,Menlo,Consolas,monospace}
 #d .m{color:var(--mute);font-size:.9rem;margin-bottom:1.4rem}
 body.dec #d{display:block}
+body.dec{overflow:auto}
 </style>
 </head>
 <body class="chat">
 <div id="term">
   <div id="tlog"></div>
+  <div id="tsug"></div>
   <div id="tbar"><span id="tprompt">...&gt; </span><input id="tin" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="message"></div>
 </div>
-<div id="chat">
-  <aside>
-    <div class="brand"><span class="logo"></span>nook</div>
-    <div class="sect">Chats <button id="newRoom" title="new room" aria-label="new room">+</button></div>
+<div id="app">
+  <aside id="side">
+    <div class="stop">
+      <div class="mark" aria-label="nook">nook</div>
+      <button class="ib" id="termBtn" title="Terminal look" aria-label="terminal look"></button>
+      <button class="ib" id="newRoom" title="New room" aria-label="new room"></button>
+    </div>
+    <label class="find"><span class="ic" id="findIc"></span><input id="find" placeholder="Search" autocomplete="off" aria-label="search chats and people"></label>
+    <div id="active"></div>
+    <div class="lbl">Chats</div>
     <nav id="chats"></nav>
-    <div class="sect">People <span id="hereCount"></span></div>
-    <nav id="people"></nav>
-    <div id="meBox">you are <b id="meName">...</b><button id="renameBtn">rename</button></div>
+    <div id="meBox"></div>
   </aside>
-  <main>
+  <main id="main">
     <header>
-      <button class="hb" id="menuBtn" aria-label="chats"></button>
+      <button class="ib" id="backBtn" aria-label="back to chats"></button>
+      <div id="hav"></div>
       <div class="tt"><div id="title">nook</div><div id="sub">connecting…</div></div>
-      <button class="hb" id="termBtn" title="terminal look" aria-label="terminal look"></button>
-      <button class="hb" id="hideBtn" title="hide (Esc)" aria-label="hide"></button>
+      <button class="ib" id="whoBtn" title="People" aria-label="people"></button>
+      <button class="ib" id="hideBtn" title="Hide (Esc)" aria-label="hide"></button>
     </header>
     <div id="msgs"></div>
     <div id="typing"></div>
+    <button id="jump" aria-label="newest messages"></button>
     <form id="composer" autocomplete="off">
-      <button type="button" class="cb" id="attachBtn" title="send a file" aria-label="send a file"></button>
-      <textarea id="cin" rows="1" placeholder="Message" aria-label="message"></textarea>
-      <button type="submit" class="cb" id="sendBtn" title="send" aria-label="send"></button>
+      <div id="sugg"></div>
+      <button type="button" class="ib" id="attachBtn" title="Send a file" aria-label="send a file"></button>
+      <div class="cbox"><textarea id="cin" rows="1" placeholder="Message" aria-label="message"></textarea></div>
+      <button type="submit" id="sendBtn" title="Send" aria-label="send"></button>
     </form>
   </main>
 </div>
+<div id="welcome"><form class="wl" id="wform" autocomplete="off">
+  <div class="mark">nook</div>
+  <p>What should people call you?</p>
+  <input id="wname" placeholder="Your name" maxlength="16" aria-label="your name">
+  <button class="btn pri" type="submit">Continue</button>
+</form></div>
 <div id="drop">Drop to send</div>
+<div id="modal"></div>
+<div id="toast"></div>
 <input type="file" id="fileIn" multiple hidden>
 <article id="d">
   <h1>Sorting algorithms</h1>
@@ -183,22 +292,30 @@ body.dec #d{display:block}
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   var body = document.body;
-  var MAX = 800;
+  var MAX = 6000;
   var S = {
     tok: '', nick: '', key: '', sid: '', hub: '', me: {}, users: {}, rooms: {}, seen: {},
     lines: [], target: '#general', dms: [], lastDM: '', es: null, beat: 0, on: false,
-    fatal: false, ask: '', hist: [], hpos: 0, fade: 0, focus: false, auto: false,
-    skew: 0, addr: [], peers: [], next: '', unread: {}, typing: {}, fileNo: 0, mode: 'chat'
+    fatal: false, hist: [], hpos: 0, fade: 0, all: false, auto: false, older: {},
+    skew: 0, addr: [], peers: [], next: '', unread: {}, typing: {}, fileNo: 0, mode: 'chat', filter: ''
   };
 
+  var P = 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
   var ICONS = {
-    send: '<svg viewBox="0 0 24 24"><path d="M4 12 20 4l-4.5 16-3.5-6.5z" fill="currentColor"/></svg>',
-    clip: '<svg viewBox="0 0 24 24"><path d="M16.5 7.5 9 15a2.1 2.1 0 0 1-3-3l8-8a3.5 3.5 0 0 1 5 5l-8.5 8.5a5 5 0 0 1-7-7L11 3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
-    file: '<svg viewBox="0 0 24 24"><path d="M6 2.8h7.5L19 8.3V20a1.3 1.3 0 0 1-1.3 1.3H6A1.3 1.3 0 0 1 4.7 20V4.1A1.3 1.3 0 0 1 6 2.8zM13 3v5.6h5.7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
-    down: '<svg viewBox="0 0 24 24"><path d="M12 4.5v10.5m0 0-4.3-4.3M12 15l4.3-4.3M5.5 19.5h13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
-    term: '<svg viewBox="0 0 24 24"><path d="m5 7 5 5-5 5m7 1h7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    hide: '<svg viewBox="0 0 24 24"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6zM4 20 20 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>'
+    send: '<svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6" ' + P + ' stroke-width="2.2"/></svg>',
+    clip: '<svg viewBox="0 0 24 24"><path d="M16.5 7.5 9 15a2.1 2.1 0 0 1-3-3l8-8a3.5 3.5 0 0 1 5 5l-8.5 8.5a5 5 0 0 1-7-7L11 3" ' + P + '/></svg>',
+    file: '<svg viewBox="0 0 24 24"><path d="M6.5 3h7L19 8.5V20a1 1 0 0 1-1 1H6.5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM13 3v6h6" ' + P + '/></svg>',
+    down: '<svg viewBox="0 0 24 24"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14" ' + P + '/></svg>',
+    eye: '<svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" ' + P + '/><circle cx="12" cy="12" r="3" ' + P + '/></svg>',
+    term: '<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="3.5" ' + P + '/><path d="m7.5 10 2.5 2-2.5 2m4.5 0h4" ' + P + '/></svg>',
+    hide: '<svg viewBox="0 0 24 24"><path d="M3.5 12S7 6 12 6c1.6 0 3 .5 4.2 1.2M20.5 12S17 18 12 18c-1.6 0-3-.5-4.2-1.2M4 20 20 4" ' + P + '/></svg>',
+    plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" ' + P + '/></svg>',
+    back: '<svg viewBox="0 0 24 24"><path d="m14.5 5.5-6.5 6.5 6.5 6.5" ' + P + ' stroke-width="2.2"/></svg>',
+    search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" ' + P + '/><path d="m16 16 4 4" ' + P + '/></svg>',
+    x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" ' + P + '/></svg>',
+    pen: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z" ' + P + '/></svg>',
+    users: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.5" ' + P + '/><path d="M2.5 19.5c.8-3.3 3.4-5 6.5-5s5.7 1.7 6.5 5M16 5.2a3.5 3.5 0 0 1 0 6.6M18 14.8c1.7.7 3 2.3 3.5 4.7" ' + P + '/></svg>',
+    chev: '<svg viewBox="0 0 24 24"><path d="m6 9.5 6 6 6-6" ' + P + ' stroke-width="2.2"/></svg>'
   };
   function icon(n) { var s = document.createElement('span'); s.className = 'ic'; s.innerHTML = ICONS[n]; return s; }
   function el(tag, cls, text) {
@@ -240,21 +357,37 @@ body.dec #d{display:block}
   // ---- little helpers ----
   function two(n) { return (n < 10 ? '0' : '') + n; }
   function hhmm(ts) { var d = new Date(ts); return two(d.getHours()) + ':' + two(d.getMinutes()); }
+  function dayName(ts) {
+    var d = new Date(ts), t = new Date(), y = new Date(Date.now() - 864e5);
+    if (d.toDateString() === t.toDateString()) return 'Today';
+    if (d.toDateString() === y.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  }
+  function when(ts) { return new Date(ts).toDateString() === new Date().toDateString() ? hhmm(ts) : new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
   function pad(s, n) { while (s.length < n) s += ' '; return s; }
   function nickOf(id) { var u = S.users[id]; return u ? u.nick : '?'; }
   function nameOf(l) { if (l.mine) return 'you'; var u = S.users[l.from]; return u ? u.nick : l.nick; }
-  function label(key) { if (key && key.charAt(0) === '@') return '@' + nickOf(key.slice(1)); return key; }
   function initial(n) { return (n || '?').charAt(0).toUpperCase(); }
   function hue(s) { var h = 0; s = s || ''; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h % 360; }
-  function color(id) { return 'hsl(' + hue(id) + ',42%,52%)'; }
+
+  function avatar(id, text, sq, size, dot) {
+    var a = el('div', 'av' + (sq ? ' sq' : '') + (size ? ' ' + size : ''), sq ? '#' : initial(text));
+    a.style.setProperty('--h', hue(id));
+    if (dot) a.appendChild(el('span', 'dot'));
+    return a;
+  }
   function human(n) {
     if (n >= 1073741824) return (n / 1073741824).toFixed(1) + ' GB';
     if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
     if (n >= 1024) return Math.round(n / 1024) + ' KB';
     return n + ' bytes';
   }
+  var EMOJI = null;
+  try { EMOJI = [new RegExp('^(\\p{Extended_Pictographic}|\\uFE0F|\\u200D|\\s){1,8}$', 'u'), new RegExp('\\p{Extended_Pictographic}', 'u')]; } catch (e) {}
   function isImg(name) { return /\.(png|jpe?g|gif|webp)$/i.test(name || ''); }
   function fileURL(f, inline) { return '/file/' + enc(f.id) + '?sid=' + enc(S.sid) + (inline ? '&inline=1' : ''); }
+  var toastT;
+  function toast(t) { var x = $('toast'); x.textContent = t; x.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(function () { x.classList.remove('on'); }, 2600); }
 
   // ---- what we know ----
   function inRoom(name) { var r = S.rooms[name]; return !!(r && r.members && r.members.indexOf(S.me.id) >= 0); }
@@ -273,21 +406,24 @@ body.dec #d{display:block}
   }
   function touchDM(id) { if (S.dms.indexOf(id) < 0) S.dms.push(id); }
   function online() { var n = 0; for (var id in S.users) if (S.users[id].on) n++; return n; }
+  function titleOf(k) { return !k ? 'no chat' : k.charAt(0) === '@' ? nickOf(k.slice(1)) : k.slice(1); }
+  // one chat at a time, like a messenger; /all mixes them (terminal look)
   function visible(l) {
-    if (S.focus && !l.sys && l.key !== S.target) return false;
+    if (l.key && l.key !== S.target && !(S.all && S.mode === 'term')) return false;
     if (S.fade && Date.now() - l.ts > S.fade * 1000) return false;
     return true;
   }
+  function lastOf(k) { for (var i = S.lines.length - 1; i >= 0; i--) if (!S.lines[i].sys && S.lines[i].key === k) return S.lines[i]; return null; }
   // add keeps lines in time order; true if the line went at the end.
   function add(l) {
     var i = S.lines.length;
     while (i > 0 && S.lines[i - 1].ts > l.ts) i--;
     S.lines.splice(i, 0, l);
-    if (S.lines.length > MAX + 100) { S.lines.splice(0, S.lines.length - MAX); return false; }
+    if (S.lines.length > MAX + 200) { S.lines.splice(0, S.lines.length - MAX); return false; }
     return i === S.lines.length - 1;
   }
   function addMsg(m, batch) {
-    if (S.seen[m.id]) return;
+    if (S.seen[m.id]) return false;
     S.seen[m.id] = 1;
     var l = { id: m.id, ts: m.ts + S.skew, from: m.from, nick: m.nick, text: m.text || '', mine: m.from === S.me.id };
     if (m.file) { l.file = m.file; l.fileNo = ++S.fileNo; }
@@ -299,19 +435,92 @@ body.dec #d{display:block}
     }
     var atEnd = add(l);
     if (S.typing[l.key] && S.typing[l.key].id === l.from) { delete S.typing[l.key]; showTyping(); }
-    if (batch) return;
+    if (batch) return true;
     if (!l.mine && l.key !== S.target) S.unread[l.key] = (S.unread[l.key] || 0) + 1;
     view().line(l, atEnd);
     side();
+    return true;
   }
-  function sys(text, notice) {
-    var l = { sys: true, notice: !!notice, ts: Date.now(), text: text, key: '' };
+  // sys: a note in the chat you're in; global ones ('' key) show everywhere
+  function sys(text, notice, key) {
+    var l = { sys: true, notice: !!notice, ts: Date.now(), text: text, key: key === undefined ? (notice ? '' : S.target) : key };
     view().line(l, add(l));
     return l;
   }
-  function block(lines) {
-    var now = Date.now();
-    lines.forEach(function (t) { var l = { sys: true, raw: true, ts: now, text: t, key: '' }; view().line(l, add(l)); });
+  // block: help and lists. Rows are "key\tdescription"; "## x" is a heading.
+  function block(rows) {
+    var l = { sys: true, raw: true, rows: rows, ts: Date.now(), text: rows.join('\n'), key: S.target };
+    view().line(l, add(l));
+  }
+
+  // ---- earlier messages: scrolling to the top fetches them ----
+  function loadOlder() {
+    var k = S.target;
+    if (!k || !S.on || S.older[k]) return;
+    var min = 0;
+    S.lines.forEach(function (l) { if (l.key === k && l.id && (!min || l.id < min)) min = l.id; });
+    S.older[k] = 'busy';
+    view().top();
+    api({ op: 'older', to: k, arg: String(min) }, function (j) {
+      var n = 0;
+      (j.hist || []).forEach(function (m) { if (addMsg(m, true)) n++; });
+      S.older[k] = (!j.more || !n) ? 'done' : '';
+      if (k === S.target) view().all(true);
+    }, true, function () { setTimeout(function () { S.older[k] = ''; }, 2000); });
+  }
+
+  // ---- Tab completion and suggestions ----
+  var CMDS = [
+    ['/g', 'back to #general'], ['/join #room', 'join or create a room'], ['/leave', 'leave this room'],
+    ['/dm name', 'message someone privately'], ['/r text', 'reply to the last private message'],
+    ['/who', 'who is here'], ['/rooms', 'every room'], ['/nick name', 'change your name'],
+    ['/send', 'share a file'], ['/see n', 'look at a file without saving it'], ['/get n', 'save a file'],
+    ['/files', 'every file shared'], ['/ui', 'chat or terminal look'], ['/dim', 'faint text'],
+    ['/fade 30', 'messages vanish after 30 s'], ['/all', 'every chat together (terminal look)'],
+    ['/autohide', 'hide when you click away'], ['/info', 'the address to share'], ['/clear', 'clear the screen'],
+    ['/key word', 'room password'], ['/help', 'everything nook can do'], ['/quit', 'disconnect']
+  ];
+  function people(prefix) {
+    var out = [];
+    for (var id in S.users) if (id !== S.me.id && S.users[id].nick.toLowerCase().indexOf(prefix.toLowerCase()) === 0) out.push(S.users[id].nick);
+    return out.sort();
+  }
+  // suggestions for what's typed so far: [shown, filled-in, description]
+  function suggest(v) {
+    var m;
+    if (/^\/[a-z]*$/i.test(v)) {
+      return CMDS.filter(function (c) { return c[0].indexOf(v.toLowerCase()) === 0; })
+        .map(function (c) { var w = c[0].split(' ')[0]; return [c[0], w + (c[0].indexOf(' ') > 0 ? ' ' : ''), c[1]]; });
+    }
+    if ((m = /^\/(dm|msg|w|m) (\S*)$/i.exec(v))) return people(m[2]).map(function (n) { return [n, '/' + m[1] + ' ' + n + ' ', S.users && 'message ' + n]; });
+    if ((m = /^\/(join|j|leave) #?(\S*)$/i.exec(v))) {
+      var out = [];
+      for (var r in S.rooms) if (r.indexOf(m[2].toLowerCase()) === 0) out.push(['#' + r, '/' + m[1] + ' #' + r + ' ', inRoom(r) ? "you're in it" : 'join']);
+      return out;
+    }
+    if ((m = /^\/(see|get) (\d*)$/i.exec(v))) {
+      var fs = [];
+      for (var i = S.lines.length - 1; i >= 0 && fs.length < 8; i--) {
+        var l = S.lines[i];
+        if (l.file && String(l.fileNo).indexOf(m[2]) === 0) fs.push([String(l.fileNo), '/' + m[1] + ' ' + l.fileNo, l.file.name + ' · ' + human(l.file.size)]);
+      }
+      return fs;
+    }
+    if ((m = /(^|\s)@?(\w+)$/.exec(v)) && v.charAt(0) !== '/') return [];
+    return [];
+  }
+  // complete: Tab in a box. One match fills it in; several fill what they share.
+  function complete(v) {
+    var s = suggest(v);
+    if (!s.length) {
+      var m = /(^|\s)(\w+)$/.exec(v);
+      if (m && v.charAt(0) !== '/') { var p = people(m[2]); if (p.length === 1) return v.slice(0, v.length - m[2].length) + p[0] + ' '; }
+      return v;
+    }
+    if (s.length === 1) return s[0][1];
+    var c = s[0][1];
+    s.forEach(function (x) { while (x[1].indexOf(c) !== 0) c = c.slice(0, -1); });
+    return c.length > v.length ? c : v;
   }
 
   // ---- terminal look ----
@@ -327,28 +536,49 @@ body.dec #d{display:block}
     },
     row: function (l) {
       var d = el('div', 'l');
-      if (l.raw) d.className += ' raw' + (l.text.charAt(0) === ' ' ? '' : ' hd');
-      else if (l.sys) d.className += l.notice ? ' n' : ' s';
+      if (l.raw) {
+        d.className += ' raw';
+        var t0 = el('span', 't');
+        l.rows.forEach(function (r) {
+          var line = el('div');
+          if (r.indexOf('## ') === 0) line.appendChild(el('span', 'hd', r.slice(3)));
+          else if (r.indexOf('\t') >= 0) { var p = r.split('\t'); line.appendChild(el('span', 'k', '  ' + pad(p[0], 16))); line.appendChild(document.createTextNode(p[1])); }
+          else line.textContent = r;
+          t0.appendChild(line);
+        });
+        d.appendChild(t0);
+        return d;
+      }
+      if (l.sys) d.className += l.notice ? ' n' : ' s';
       else if (l.key.charAt(0) === '@') d.className += ' dm';
       else if (l.key !== S.target) d.className += ' o';
-      if (!l.raw) d.appendChild(el('span', 'h', term.head(l)));
+      d.appendChild(el('span', 'h', term.head(l)));
       var t = el('span', 't');
       if (l.file) {
-        var a = el('a', 'f', '[file] ' + l.file.name + ' · ' + human(l.file.size));
-        a.href = fileURL(l.file); a.setAttribute('download', l.file.name);
+        var a = el('a', '', '[file] ' + l.file.name + ' · ' + human(l.file.size));
+        a.onclick = function () { see(l); };
         t.appendChild(a);
-        if (!l.mine) t.appendChild(document.createTextNode('  /get ' + l.fileNo));
+        t.appendChild(document.createTextNode('  /see ' + l.fileNo + (l.mine ? '' : '  /get ' + l.fileNo)));
       } else t.textContent = l.text;
       d.appendChild(t);
       return d;
     },
-    all: function () {
-      var log = $('tlog'), stick = log.scrollHeight - log.scrollTop - log.clientHeight < 40, f = document.createDocumentFragment();
+    top: function () {
+      var log = $('tlog'), t = log.querySelector('.top');
+      if (!t) { t = el('div', 'top'); log.insertBefore(t, log.firstChild); }
+      var st = S.older[S.target];
+      t.textContent = st === 'busy' ? '· loading earlier messages ·' : st === 'done' ? '· the start of ' + (S.target.charAt(0) === '@' ? 'your chat with ' + titleOf(S.target) : S.target) + ' ·' : '· · ·';
+    },
+    all: function (keep) {
+      var log = $('tlog'), stick = log.scrollHeight - log.scrollTop - log.clientHeight < 40, h0 = log.scrollHeight, t0 = log.scrollTop, f = document.createDocumentFragment();
       for (var i = 0; i < S.lines.length; i++) if (visible(S.lines[i])) f.appendChild(term.row(S.lines[i]));
       log.textContent = '';
       log.appendChild(f);
-      if (stick) log.scrollTop = log.scrollHeight;
+      term.top();
+      if (keep) log.scrollTop = log.scrollHeight - h0 + t0;
+      else if (stick) log.scrollTop = log.scrollHeight;
       term.prompt();
+      if (log.scrollHeight <= log.clientHeight + 4) loadOlder();
     },
     line: function (l, atEnd) {
       if (!atEnd) return term.all();
@@ -359,16 +589,12 @@ body.dec #d{display:block}
       if (stick) log.scrollTop = log.scrollHeight;
     },
     prompt: function () {
-      var p;
-      if (S.ask === 'nick') p = 'your name';
-      else if (S.ask === 'key') p = 'room key';
-      else {
-        p = S.target ? (S.target.charAt(0) === '@' ? 'DM ' + nickOf(S.target.slice(1)) : S.target) : '(no room)';
-        if (!S.on) p = (S.fatal ? '(stopped) ' : '(offline) ') + p;
-      }
+      var p = S.target ? (S.target.charAt(0) === '@' ? 'DM ' + nickOf(S.target.slice(1)) : S.target) : '(no room)';
+      if (!S.on) p = (S.fatal ? '(stopped) ' : '(offline) ') + p;
+      if (S.ask === 'key') p = 'room key';
       $('tprompt').textContent = p + '> ';
     },
-    focus: function () { $('tin').focus(); }
+    focus: function () { if (!S.ask || S.ask === 'key') $('tin').focus(); }
   };
 
   // ---- chat look ----
@@ -376,25 +602,25 @@ body.dec #d{display:block}
     put: function (l, anim) {
       var m = $('msgs');
       if (l.sys) {
-        if (l.raw) {
-          var last = m.lastChild;
-          if (!last || !last.classList || !last.classList.contains('block')) { last = el('div', 'block'); m.appendChild(last); }
-          last.appendChild(el('div', l.text.charAt(0) === ' ' ? 'bl' : 'bh', l.text));
-          return;
-        }
-        m.appendChild(el('div', 'sys' + (l.notice ? ' note' : '') + (anim ? ' new' : ''), l.text));
+        if (l.raw) return m.appendChild(chat.card(l));
+        m.appendChild(el('div', 'sys' + (l.notice ? ' note' : ''), l.text));
         return;
       }
+      var day = dayName(l.ts);
+      if (m.getAttribute('data-day') !== day) { m.setAttribute('data-day', day); m.appendChild(el('div', 'day', day)); }
       var g = m.lastChild;
       var same = g && g.classList && g.classList.contains('grp') && g.getAttribute('data-from') === l.from && l.ts - Number(g.getAttribute('data-ts')) < 180000;
       if (!same) {
         g = el('div', 'grp ' + (l.mine ? 'me' : 'them'));
         g.setAttribute('data-from', l.from);
-        if (!l.mine) { var av = el('div', 'av', initial(nameOf(l))); av.style.background = color(l.from); g.appendChild(av); }
-        var col = el('div', 'col'), who = el('div', 'who');
-        if (!l.mine) who.appendChild(el('span', 'nm', nameOf(l)));
-        who.appendChild(el('span', 'tm', hhmm(l.ts)));
-        col.appendChild(who);
+        var col = el('div', 'col');
+        if (!l.mine) {
+          g.appendChild(avatar(l.from, nameOf(l), false, 'sm'));
+          var who = el('div', 'who');
+          if (l.key.charAt(0) === '#') { var nm = el('span', 'nm', nameOf(l)); nm.style.setProperty('--h', hue(l.from)); who.appendChild(nm); }
+          who.appendChild(el('span', '', hhmm(l.ts)));
+          col.appendChild(who);
+        }
         g.appendChild(col);
         m.appendChild(g);
       }
@@ -404,97 +630,159 @@ body.dec #d{display:block}
     bubble: function (l, anim) {
       var b = el('div', 'b' + (anim ? ' new' : ''));
       b.title = hhmm(l.ts);
-      if (!l.file) { b.textContent = l.text; return b; }
+      if (!l.file) {
+        b.textContent = l.text;
+        if (EMOJI && EMOJI[0].test(l.text) && EMOJI[1].test(l.text)) b.className += ' emoji'; // just an emoji or two: big
+        return b;
+      }
       b.className += ' file';
       if (isImg(l.file.name)) {
         var img = el('img', 'pv'); img.loading = 'lazy'; img.alt = l.file.name; img.src = fileURL(l.file, true);
+        img.onclick = function () { see(l); };
+        img.onload = function () { var m = $('msgs'); if (m.scrollHeight - m.scrollTop - m.clientHeight < 400) m.scrollTop = m.scrollHeight; };
         b.appendChild(img);
       }
-      var row = el('div', 'frow'), meta = el('div', 'fmeta');
-      row.appendChild(icon('file'));
+      var row = el('div', 'frow'), meta = el('div', 'fmeta'), fi = el('div', 'fi'), fa = el('div', 'fa');
+      fi.appendChild(icon('file'));
+      row.appendChild(fi);
       meta.appendChild(el('div', 'fn', l.file.name));
       meta.appendChild(el('div', 'fs', human(l.file.size)));
       row.appendChild(meta);
-      var a = el('a', 'dl'); a.href = fileURL(l.file); a.setAttribute('download', l.file.name); a.title = 'download'; a.appendChild(icon('down'));
-      row.appendChild(a);
+      var v = el('button', 'fb'); v.type = 'button'; v.title = 'look (/see ' + l.fileNo + ')'; v.appendChild(icon('eye')); v.onclick = function () { see(l); };
+      var a = el('a', 'fb'); a.href = fileURL(l.file); a.setAttribute('download', l.file.name); a.title = 'save (/get ' + l.fileNo + ')'; a.appendChild(icon('down'));
+      fa.appendChild(v); fa.appendChild(a); row.appendChild(fa);
       b.appendChild(row);
       if (l.text) b.appendChild(el('div', 'cap', l.text));
       return b;
     },
-    all: function () {
-      var m = $('msgs');
-      m.style.scrollBehavior = 'auto';
-      m.textContent = '';
-      if (S.ask === 'nick') {
-        var h = el('div', 'hello'); h.appendChild(el('b', '', 'Welcome to nook'));
-        h.appendChild(document.createTextNode('Type the name people will see, then press Enter.'));
-        m.appendChild(h);
-      }
-      for (var i = 0; i < S.lines.length; i++) {
-        var l = S.lines[i];
-        if ((l.sys || l.key === S.target) && visible(l)) chat.put(l, false);
-      }
-      m.scrollTop = m.scrollHeight;
-      m.style.scrollBehavior = '';
+    card: function (l) {
+      var c = el('div', 'card');
+      l.rows.forEach(function (r) {
+        if (r.indexOf('## ') === 0) return c.appendChild(el('h4', '', r.slice(3)));
+        if (r.indexOf('\t') >= 0) {
+          var p = r.split('\t'), d = el('div', 'r'), k = el('code', '', p[0]);
+          k.onclick = function () { var c0 = $('cin'); c0.value = p[0].replace(/ (name|text|n|#room|word|30)$/, ' '); c0.focus(); grow(); };
+          d.appendChild(k); d.appendChild(el('span', '', p[1]));
+          return c.appendChild(d);
+        }
+        c.appendChild(el('div', 'p', r));
+      });
+      return c;
+    },
+    top: function () {
+      var m = $('msgs'), t = m.querySelector('.intro,.spin'), st = S.older[S.target], k = S.target, n;
+      if (t) t.parentNode.removeChild(t);
+      if (!k) return;
+      if (st === 'busy') n = el('div', 'spin');
+      else if (st === 'done') {
+        n = el('div', 'intro');
+        n.appendChild(avatar(k.slice(1), titleOf(k), k.charAt(0) === '#', 'xl'));
+        n.appendChild(el('b', '', k.charAt(0) === '#' ? '#' + titleOf(k) : titleOf(k)));
+        n.appendChild(document.createTextNode(k.charAt(0) === '@' ? 'This is the start of your private chat. Only the two of you see it.' : 'This is the start of #' + titleOf(k) + '.'));
+      } else return;
+      m.insertBefore(n, m.firstChild);
+    },
+    all: function (keep) {
+      var m = $('msgs'), h0 = m.scrollHeight, t0 = m.scrollTop;
+      m.textContent = ''; m.removeAttribute('data-day');
+      for (var i = 0; i < S.lines.length; i++) if (visible(S.lines[i])) chat.put(S.lines[i], false);
+      chat.top();
+      m.scrollTop = keep ? m.scrollHeight - h0 + t0 : m.scrollHeight;
       chat.prompt();
+      if (m.scrollHeight <= m.clientHeight + 4) loadOlder();
     },
     line: function (l, atEnd) {
-      if (!atEnd) return chat.all();
-      if (!l.sys && l.key !== S.target) return; // other chats just get a badge
-      var m = $('msgs'), stick = m.scrollHeight - m.scrollTop - m.clientHeight < 120;
+      if (!atEnd) return chat.all(true);
+      if (!visible(l)) return;
+      var m = $('msgs'), stick = m.scrollHeight - m.scrollTop - m.clientHeight < 160;
       chat.put(l, true);
-      if (stick || l.mine) m.scrollTop = m.scrollHeight;
+      if (stick || l.mine) m.scrollTo({ top: m.scrollHeight, behavior: 'smooth' });
     },
     prompt: function () {
-      var k = S.target, dm = k && k.charAt(0) === '@', sub = '';
-      $('title').textContent = !k ? 'no chat' : dm ? nickOf(k.slice(1)) : k;
+      var k = S.target, dm = k && k.charAt(0) === '@', sub = '', on = false, hav = $('hav');
+      $('title').textContent = dm ? titleOf(k) : k ? '#' + titleOf(k) : 'nook';
+      hav.textContent = '';
+      if (k) hav.appendChild(avatar(k.slice(1), titleOf(k), !dm, null, dm && S.users[k.slice(1)] && S.users[k.slice(1)].on));
       if (!S.on) sub = S.fatal ? 'stopped' : 'connecting…';
-      else if (dm) { var u = S.users[k.slice(1)]; sub = 'direct message · ' + (u && u.on ? 'here' : 'away'); }
+      else if (dm) { var u = S.users[k.slice(1)]; on = !!(u && u.on); sub = on ? 'Active now' : 'Away'; }
       else if (k) {
         var r = S.rooms[k.slice(1)], n = 0;
         if (r) r.members.forEach(function (id) { if (S.users[id] && S.users[id].on) n++; });
-        sub = n + ' here';
+        sub = n + (n === 1 ? ' person' : ' people') + ' here';
       }
       $('sub').textContent = sub;
-      $('cin').placeholder = S.ask === 'nick' ? 'Your name' : S.ask === 'key' ? 'Room key' : !k ? 'Join a room: /join #name' : 'Message ' + (dm ? nickOf(k.slice(1)) : k);
+      $('sub').classList.toggle('on', on);
+      $('cin').placeholder = !k ? 'Join a room: /join #name' : 'Message ' + (dm ? titleOf(k) : '#' + titleOf(k));
     },
-    focus: function () { $('cin').focus(); }
+    focus: function () { if (window.innerWidth > 760 || body.classList.contains('inchat')) $('cin').focus({ preventScroll: true }); }
   };
   function view() { return S.mode === 'term' ? term : chat; }
 
   function side() {
-    var c = $('chats');
+    var c = $('chats'), f = S.filter.toLowerCase();
     c.textContent = '';
-    chats().forEach(function (k) {
-      var it = el('div', 'item' + (k === S.target ? ' on' : '')), dm = k.charAt(0) === '@';
-      if (dm) { var av = el('span', 'mini', initial(nickOf(k.slice(1)))); av.style.background = color(k.slice(1)); it.appendChild(av); }
-      else it.appendChild(el('span', 'hash', '#'));
-      it.appendChild(el('span', 'nm', dm ? nickOf(k.slice(1)) : k.slice(1)));
-      if (dm && S.users[k.slice(1)] && S.users[k.slice(1)].on) it.appendChild(el('span', 'pd'));
-      if (S.unread[k]) it.appendChild(el('span', 'badge', String(S.unread[k])));
-      it.onclick = function () { open(k); };
+    var list = chats();
+    list.sort(function (a, b) { // newest conversation first, #general on top
+      if (a === '#general') return -1; if (b === '#general') return 1;
+      var x = lastOf(a), y = lastOf(b);
+      return (y ? y.ts : 0) - (x ? x.ts : 0);
+    });
+    list.forEach(function (k) {
+      var dm = k.charAt(0) === '@', name = titleOf(k);
+      if (f && name.toLowerCase().indexOf(f) < 0) return;
+      var it = el('div', 'row' + (k === S.target ? ' on' : '') + (S.unread[k] ? ' un' : ''));
+      var u = dm ? S.users[k.slice(1)] : null;
+      it.appendChild(avatar(k.slice(1), name, !dm, null, u && u.on));
+      var mid = el('div', 'mid'), last = lastOf(k), end = el('div', 'end');
+      mid.appendChild(el('div', 'nm', dm ? name : '#' + name));
+      var pre = last ? (last.mine ? 'You: ' : dm ? '' : nameOf(last) + ': ') + (last.file ? 'sent ' + last.file.name : last.text) : dm ? 'Say hi' : 'No messages yet';
+      mid.appendChild(el('div', 'pre', pre));
+      it.appendChild(mid);
+      if (last) end.appendChild(el('span', '', when(last.ts)));
+      if (S.unread[k]) end.appendChild(el('span', 'badge', String(S.unread[k])));
+      it.appendChild(end);
+      it.onclick = function () { open(k, true); };
       c.appendChild(it);
     });
-    var p = $('people'), list = [];
-    p.textContent = '';
-    for (var id in S.users) list.push(S.users[id]);
-    list.sort(function (a, b) { return (b.on - a.on) || (a.nick.toLowerCase() < b.nick.toLowerCase() ? -1 : 1); });
-    list.forEach(function (u) {
-      var it = el('div', 'item' + (u.on ? '' : ' away'));
-      var av = el('span', 'mini', initial(u.nick)); av.style.background = color(u.id);
-      it.appendChild(av);
-      it.appendChild(el('span', 'nm', u.nick + (u.id === S.me.id ? ' (you)' : '')));
-      it.appendChild(el('span', u.on ? 'pd' : 'pd off'));
-      if (u.id !== S.me.id) it.onclick = function () { touchDM(u.id); open('@' + u.id); };
-      p.appendChild(it);
+    var a = $('active'), ppl = [];
+    a.textContent = '';
+    for (var id in S.users) if (S.users[id].on && id !== S.me.id && (!f || S.users[id].nick.toLowerCase().indexOf(f) >= 0)) ppl.push(S.users[id]);
+    ppl.sort(function (x, y) { return x.nick.toLowerCase() < y.nick.toLowerCase() ? -1 : 1; });
+    ppl.forEach(function (u) {
+      var p = el('div', 'act');
+      p.appendChild(avatar(u.id, u.nick, false, null, true));
+      p.appendChild(el('span', '', u.nick));
+      p.onclick = function () { touchDM(u.id); open('@' + u.id, true); };
+      a.appendChild(p);
     });
-    $('hereCount').textContent = online() + ' here';
-    $('meName').textContent = S.nick || '...';
+    a.style.display = ppl.length ? '' : 'none';
+    var me = $('meBox');
+    if (!me.querySelector('input')) {
+      me.textContent = '';
+      me.appendChild(avatar(S.me.id || S.tok, S.nick, false, 'sm'));
+      var mm = el('div', 'mid');
+      mm.appendChild(el('div', 'nm', S.nick || '…'));
+      mm.appendChild(el('div', 'st', S.on ? online() + ' here · ' + location.host : 'connecting…'));
+      me.appendChild(mm);
+      var pen = el('button', 'ib'); pen.title = 'Change your name'; pen.appendChild(icon('pen'));
+      pen.onclick = editName;
+      me.appendChild(pen);
+    }
   }
-  function open(k) {
+  function editName() {
+    var me = $('meBox'), mm = me.querySelector('.mid'), inp = el('input');
+    inp.value = S.nick; inp.maxLength = 16;
+    mm.textContent = ''; mm.appendChild(inp); inp.focus(); inp.select();
+    var done = function (save) { if (save && inp.value.trim() && inp.value.trim() !== S.nick) rename(inp.value); me.textContent = ''; side(); };
+    inp.onkeydown = function (e) { if (e.key === 'Enter') done(true); if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+    inp.onblur = function () { done(true); };
+  }
+  function open(k, user) {
+    var swap = k !== S.target;
     S.target = k; S.unread[k] = 0;
-    body.classList.remove('side');
+    if (user) body.classList.add('inchat');
     view().all(); side(); showTyping();
+    if (swap) { var m = $('msgs'); m.classList.remove('swap'); void m.offsetWidth; m.classList.add('swap'); }
     view().focus();
   }
   function setMode(m) {
@@ -507,14 +795,20 @@ body.dec #d{display:block}
   function showTyping() {
     var t = S.typing[S.target], box = $('typing');
     if (t && Date.now() - t.at < 4500) {
-      box.textContent = t.nick + ' is typing';
-      var d = el('span', 'dots'); d.appendChild(el('i')); d.appendChild(el('i')); d.appendChild(el('i'));
-      box.appendChild(d); box.classList.add('on');
+      if (!box.firstChild || box.getAttribute('data-who') !== t.nick) {
+        box.textContent = ''; box.setAttribute('data-who', t.nick);
+        var tb = el('div', 'tb'), d = el('span', 'dots');
+        tb.appendChild(avatar(t.id, t.nick, false, 'sm'));
+        d.appendChild(el('i')); d.appendChild(el('i')); d.appendChild(el('i'));
+        tb.appendChild(d);
+        box.appendChild(tb);
+      }
+      box.classList.add('on');
     } else box.classList.remove('on');
   }
   var lastTyping = 0;
   function typed() {
-    if (S.on && S.target && !S.ask && Date.now() - lastTyping > 3000) { lastTyping = Date.now(); api({ op: 'typing', to: S.target }, null, true); }
+    if (S.on && S.target && Date.now() - lastTyping > 3000) { lastTyping = Date.now(); api({ op: 'typing', to: S.target }, null, true); }
   }
 
   // ---- events from the host ----
@@ -522,7 +816,7 @@ body.dec #d{display:block}
     switch (ev.t) {
       case 'hello':
         var fresh = ev.hub !== S.hub;
-        if (fresh) { S.seen = {}; S.hub = ev.hub; }
+        if (fresh) { S.seen = {}; S.hub = ev.hub; S.older = {}; }
         S.sid = ev.sid; S.me = ev.me || {}; S.skew = ev.now ? Date.now() - ev.now : 0;
         if (S.me.nick) { S.nick = S.me.nick; store('nick', S.nick); }
         S.users = {}; (ev.users || []).forEach(function (u) { S.users[u.id] = u; });
@@ -531,11 +825,11 @@ body.dec #d{display:block}
         (ev.hist || []).forEach(function (m) { addMsg(m, true); });
         fixTarget();
         S.on = true; S.next = '';
-        if (fresh) sys('connected · ' + online() + ' here · /help');
+        if (fresh && S.mode === 'term') sys('connected · ' + online() + ' here · /help', false, '');
         view().all(); side();
         break;
       case 'msg': if (ev.msg) addMsg(ev.msg, false); break;
-      case 'hist': (ev.hist || []).forEach(function (m) { addMsg(m, true); }); view().all(); side(); break;
+      case 'hist': (ev.hist || []).forEach(function (m) { addMsg(m, true); }); view().all(true); side(); break;
       case 'user':
         var u = ev.user; if (!u) break;
         var old = S.users[u.id];
@@ -543,7 +837,7 @@ body.dec #d{display:block}
         if (u.id === S.me.id) { S.me = u; S.nick = u.nick; store('nick', u.nick); }
         if (old && old.nick !== u.nick) {
           sys((u.id === S.me.id ? 'you are' : old.nick + ' is') + ' now known as ' + u.nick, true);
-          view().all(); // names follow the person: old messages show the new name
+          view().all(true); // names follow the person: old messages show the new name
         }
         side(); view().prompt();
         break;
@@ -553,8 +847,8 @@ body.dec #d{display:block}
         if (r.gone) delete S.rooms[r.name]; else S.rooms[r.name] = r;
         var now = inRoom(r.name);
         if (r.name !== 'general' && was && now && before) {
-          r.members.forEach(function (id) { if (id !== S.me.id && before.members.indexOf(id) < 0) sys(nickOf(id) + ' joined #' + r.name); });
-          before.members.forEach(function (id) { if (id !== S.me.id && r.members.indexOf(id) < 0) sys(nickOf(id) + ' left #' + r.name); });
+          r.members.forEach(function (id) { if (id !== S.me.id && before.members.indexOf(id) < 0) sys(nickOf(id) + ' joined #' + r.name, false, '#' + r.name); });
+          before.members.forEach(function (id) { if (id !== S.me.id && r.members.indexOf(id) < 0) sys(nickOf(id) + ' left #' + r.name, false, '#' + r.name); });
         }
         if (was !== now) { fixTarget(); view().all(); }
         side(); view().prompt();
@@ -565,17 +859,17 @@ body.dec #d{display:block}
         S.typing[key] = { nick: ev.user.nick, id: ev.user.id, at: Date.now() };
         showTyping();
         break;
-      case 'moved': sys('the room moved to another host · following'); go(ev.url); break;
+      case 'moved': sys('the room moved to another host · following', false, ''); go(ev.url); break;
       case 'bye':
-        sys('the host left · looking for the new one');
-        S.on = false; S.next = ev.url || ''; view().prompt(); hunt();
+        sys('the host left · looking for the new one', false, '');
+        S.on = false; S.next = ev.url || ''; view().prompt(); side(); hunt();
         break;
       case 'err':
-        S.fatal = true; S.on = false; closeES(); sys(ev.text);
+        S.fatal = true; S.on = false; closeES(); sys(ev.text, false, '');
         if (/key/.test(ev.text)) askKey();
         view().prompt();
         break;
-      case 'sys': sys(ev.text); break;
+      case 'sys': sys(ev.text, false, ''); break;
     }
   }
 
@@ -596,7 +890,7 @@ body.dec #d{display:block}
     es.onopen = function () { S.beat = Date.now(); };
     es.onerror = function () {
       if (S.es !== es) return;
-      if (S.on) { S.on = false; view().prompt(); }
+      if (S.on) { S.on = false; view().prompt(); side(); }
       if (es.readyState === 2) setTimeout(function () { if (S.es === es) connect(); }, 2000);
       hunt();
     };
@@ -644,19 +938,19 @@ body.dec #d{display:block}
   }, 5000);
   setInterval(function () { if (S.fade) view().all(); showTyping(); }, 1000);
 
-  function api(b, done, quiet) {
+  function api(b, done, quiet, fail) {
     b.sid = S.sid;
     fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        if (!j.ok) { if (!quiet) sys(j.err || 'failed'); if (j.err === 'not connected') connect(); return; }
+        if (!j.ok) { if (!quiet) sys(j.err || 'failed'); if (j.err === 'not connected') connect(); if (fail) fail(); return; }
         if (done) done(j);
-      }, function () { if (!quiet) sys('not sent · connection problem'); });
+      }, function () { if (!quiet) sys('not sent · connection problem'); if (fail) fail(); });
   }
 
   // ---- files ----
   function upload(file) {
-    if (!S.on || !S.target) { sys('not connected'); return; }
+    if (!S.on || !S.target) { toast('not connected'); return; }
     var x = new XMLHttpRequest(), pend = pending(file);
     x.upload.onprogress = function (e) { if (e.lengthComputable) pend.set(e.loaded / e.total); };
     x.onload = function () {
@@ -672,11 +966,11 @@ body.dec #d{display:block}
   function pending(file) {
     if (S.mode === 'chat') {
       var m = $('msgs'), g = el('div', 'grp me'), col = el('div', 'col'), b = el('div', 'b file new');
-      var row = el('div', 'frow'), meta = el('div', 'fmeta'), fs = el('div', 'fs', 'sending… 0%');
-      row.appendChild(icon('file')); meta.appendChild(el('div', 'fn', file.name)); meta.appendChild(fs); row.appendChild(meta);
+      var row = el('div', 'frow'), meta = el('div', 'fmeta'), fs = el('div', 'fs', 'sending… 0%'), fi = el('div', 'fi');
+      fi.appendChild(icon('file')); row.appendChild(fi); meta.appendChild(el('div', 'fn', file.name)); meta.appendChild(fs); row.appendChild(meta);
       var bar = el('div', 'bar'), fill = el('div', 'fill');
       bar.appendChild(fill); b.appendChild(row); b.appendChild(bar); col.appendChild(b); g.appendChild(col); m.appendChild(g);
-      m.scrollTop = m.scrollHeight;
+      m.scrollTo({ top: m.scrollHeight, behavior: 'smooth' });
       return {
         set: function (f) { fill.style.width = (f * 100).toFixed(1) + '%'; fs.textContent = 'sending… ' + Math.round(f * 100) + '%'; },
         done: function () { if (g.parentNode) g.parentNode.removeChild(g); }
@@ -688,22 +982,62 @@ body.dec #d{display:block}
       done: function () { l.text = 'sent ' + file.name; if (l.node) l.node.lastChild.textContent = l.text; }
     };
   }
-  function getFile(n) {
+  function findFile(n) {
     for (var i = S.lines.length - 1; i >= 0; i--) {
       var l = S.lines[i];
-      if (l.file && (n ? l.fileNo === n : !l.mine)) {
-        var a = el('a'); a.href = fileURL(l.file); a.setAttribute('download', l.file.name);
-        document.body.appendChild(a); a.click(); a.parentNode.removeChild(a);
-        return sys('downloading ' + l.file.name);
-      }
+      if (l.file && (n ? l.fileNo === n : !l.mine)) return l;
     }
-    sys('no such file · /files lists them');
+    return null;
+  }
+  function getFile(n) {
+    var l = findFile(n);
+    if (!l) return sys('no such file · /files lists them');
+    var a = el('a'); a.href = fileURL(l.file); a.setAttribute('download', l.file.name);
+    document.body.appendChild(a); a.click(); a.parentNode.removeChild(a);
+    toast('downloading ' + l.file.name);
+  }
+  // see: look at a file in the page, without saving it
+  function see(l) {
+    var f = l.file, s = el('div', 'sheet'), h = el('div', 'sh'), tt = el('div', 'tt'), b = el('div', 'sb');
+    tt.appendChild(el('b', '', f.name)); tt.appendChild(el('span', '', human(f.size) + ' · from ' + nameOf(l)));
+    h.appendChild(tt);
+    var dl = el('a', 'ib'); dl.href = fileURL(f); dl.setAttribute('download', f.name); dl.title = 'Save'; dl.appendChild(icon('down'));
+    var x = el('button', 'ib'); x.title = 'Close'; x.appendChild(icon('x')); x.onclick = closeModal;
+    h.appendChild(dl); h.appendChild(x);
+    s.appendChild(h); s.appendChild(b);
+    modal(s);
+    if (isImg(f.name)) { var img = el('img'); img.alt = f.name; img.src = fileURL(f, true); b.appendChild(img); return; }
+    if (f.size > 5 * 1048576) { b.appendChild(el('div', 'msg', 'Too big to show here · save it instead')); return; }
+    var wait = el('div', 'spin'); b.appendChild(wait);
+    fetch(fileURL(f)).then(function (r) { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(function (buf) {
+      var u8 = new Uint8Array(buf), head = u8.subarray(0, 8192), bin = false;
+      for (var i = 0; i < head.length; i++) if (head[i] === 0) { bin = true; break; }
+      b.textContent = '';
+      if (bin) { b.appendChild(el('div', 'msg', "nook can't show this kind of file · save it to open it")); return; }
+      b.appendChild(el('pre', '', new TextDecoder('utf-8').decode(u8)));
+    }, function () { b.textContent = ''; b.appendChild(el('div', 'msg', "couldn't open it (it may have expired)")); });
+  }
+  function modal(sheet) { var m = $('modal'); m.textContent = ''; m.appendChild(sheet); m.classList.add('on'); }
+  function closeModal() { var m = $('modal'); m.classList.remove('on'); m.textContent = ''; view().focus(); }
+  $('modal').addEventListener('click', function (e) { if (e.target === $('modal')) closeModal(); });
+  // ask: a small rounded dialog instead of the browser's prompt()
+  function ask(title, ph, val, cb, secret) {
+    var s = el('form', 'sheet small'), a = el('div', 'ask'), inp = el('input'), bs = el('div', 'btns');
+    a.appendChild(el('b', '', title));
+    inp.placeholder = ph; inp.value = val || ''; if (secret) inp.type = 'password';
+    a.appendChild(inp);
+    var no = el('button', 'btn', 'Cancel'); no.type = 'button'; no.onclick = closeModal;
+    var ok = el('button', 'btn pri', 'OK'); ok.type = 'submit';
+    bs.appendChild(no); bs.appendChild(ok); a.appendChild(bs); s.appendChild(a);
+    s.onsubmit = function (e) { e.preventDefault(); var v = inp.value; closeModal(); cb(v); };
+    modal(s);
+    setTimeout(function () { inp.focus(); inp.select(); }, 30);
   }
   function listFiles() {
     var out = [];
-    S.lines.forEach(function (l) { if (l.file) out.push('  ' + pad(String(l.fileNo), 4) + l.file.name + '  ' + human(l.file.size) + '  from ' + nameOf(l)); });
+    S.lines.forEach(function (l) { if (l.file) out.push('#' + l.fileNo + '  ' + l.file.name + '\t' + human(l.file.size) + ' from ' + nameOf(l)); });
     if (!out.length) return sys('no files yet · drag one in, or /send');
-    block(['files (/get N to download)'].concat(out));
+    block(['## files · /see n to look · /get n to save'].concat(out));
   }
   var dragN = 0;
   function hasFiles(e) { var t = e.dataTransfer && e.dataTransfer.types; if (!t) return false; for (var i = 0; i < t.length; i++) if (t[i] === 'Files') return true; return false; }
@@ -717,7 +1051,7 @@ body.dec #d{display:block}
   });
   document.addEventListener('paste', function (e) {
     var fs = e.clipboardData && e.clipboardData.files;
-    if (fs && fs.length && !S.ask) { e.preventDefault(); for (var i = 0; i < fs.length; i++) upload(fs[i]); }
+    if (fs && fs.length) { e.preventDefault(); for (var i = 0; i < fs.length; i++) upload(fs[i]); }
   });
   $('fileIn').addEventListener('change', function () {
     var fs = $('fileIn').files;
@@ -739,60 +1073,68 @@ body.dec #d{display:block}
   function say(to, text) {
     to = to || S.target;
     if (!to) return sys("you're not in a room · /join #name");
-    if (!S.on) return sys('offline · not sent');
+    if (!S.on) return toast('offline · not sent');
     api({ op: 'say', to: to, text: text });
   }
   function cleanRoom(s) { return s.trim().toLowerCase().replace(/^#+/, '').replace(/[^a-z0-9_-]/g, '').slice(0, 24); }
   function joinRoom(name) {
     if (!name) return sys('usage: /join #room');
-    if (inRoom(name)) return open('#' + name);
+    if (inRoom(name)) return open('#' + name, true);
     api({ op: 'join', arg: name }, function (j) {
       var r = S.rooms[j.room] || (S.rooms[j.room] = { name: j.room, members: [] });
       if (r.members.indexOf(S.me.id) < 0) r.members.push(S.me.id);
-      open('#' + j.room);
+      open('#' + j.room, true);
     });
   }
   function rename(n) {
     n = (n || '').replace(/^@/, '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 16);
-    if (!n) return sys('names use letters, digits, _ . -');
+    if (!n) return toast('names use letters, digits, _ . -');
     api({ op: 'nick', arg: n }, function (j) { S.nick = j.nick; store('nick', j.nick); side(); });
   }
   function who(arg) {
     var name = cleanRoom(arg || ''), r = name ? S.rooms[name] : null;
     if (name && !r) return sys('no room #' + name);
-    var rows = [], w = 4;
+    var rows = [];
     for (var id in S.users) {
       var u = S.users[id];
       if (r && r.members.indexOf(id) < 0) continue;
       var rs = [];
       for (var rn in S.rooms) if (S.rooms[rn].members.indexOf(id) >= 0) rs.push('#' + rn);
-      var nm = u.nick + (id === S.me.id ? ' (you)' : '');
-      if (nm.length > w) w = nm.length;
-      rows.push({ name: nm, on: u.on, rooms: rs.sort().join(' ') });
+      rows.push({ name: u.nick + (id === S.me.id ? ' (you)' : ''), on: u.on, rooms: rs.sort().join(' ') });
     }
     rows.sort(function (a, b) { return (b.on - a.on) || (a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1); });
-    var here = rows.filter(function (x) { return x.on; }).length, head = (r ? 'people in #' + name + ': ' : 'people here: ') + here;
-    if (rows.length > here) head += ', ' + (rows.length - here) + ' away';
-    block([head + '  (/dm name to message someone)'].concat(rows.map(function (x) { return '  ' + (x.on ? '* ' : '  ') + pad(x.name, w) + '  ' + (x.on ? x.rooms : 'away'); })));
+    var here = rows.filter(function (x) { return x.on; }).length, head = (r ? 'in #' + name + ': ' : 'here: ') + here;
+    if (rows.length > here) head += ' · away: ' + (rows.length - here);
+    block(['## ' + head].concat(rows.map(function (x) { return (x.on ? '● ' : '○ ') + x.name + '\t' + (x.on ? x.rooms : 'away'); })));
   }
   function help() {
     block([
-      'keys',
-      '  Esc            hide behind a page of notes (Esc again: back)',
-      '  Tab            next chat     Shift+Tab: previous',
-      'chats',
-      '  /g                 back to #general',
-      '  /join #room        join or create a room       /leave   leave it',
-      '  /dm name [text]    private message             /r text  reply to the last one',
-      '  /who               who is here, and their rooms   /rooms  all rooms',
-      '  /nick name         change your name (everyone sees it)',
-      'files',
-      '  drag, paste or /send    share files     /get [n]  download     /files  list',
-      'looks',
-      '  /ui chat | term    chat bubbles or the terminal look',
-      '  /dim  /fade 30     faint text / messages vanish after 30 seconds',
-      '  /focus  /autohide  only this chat / hide when you click away',
-      '  /info  /clear  /key word  /quit'
+      '## keys',
+      'Esc\thide behind a page of notes (Esc again: back)',
+      'Tab\tfinish a /command or a name',
+      'Alt+↑ ↓\tprevious / next chat',
+      '## chats',
+      '/g\tback to #general',
+      '/join #room\tjoin or create a room',
+      '/leave\tleave the room you\'re in',
+      '/dm name text\tprivate message',
+      '/r text\treply to the last private message',
+      '/who\twho is here, and their rooms',
+      '/rooms\tevery room',
+      '/nick name\tchange your name (everyone is told)',
+      '## files',
+      '/send\tshare a file (or drag, or paste one)',
+      '/see n\tlook at a file without saving it',
+      '/get n\tsave a file',
+      '/files\tevery file shared so far',
+      '## looks',
+      '/ui\tchat bubbles or the terminal look',
+      '/all\tevery chat together (terminal look)',
+      '/dim\tfaint text',
+      '/fade 30\tmessages vanish after 30 seconds',
+      '/autohide\thide when you click away',
+      '/info\tthe address to share',
+      '/quit\tdisconnect'
     ]);
   }
   function input(line) {
@@ -801,7 +1143,7 @@ body.dec #d{display:block}
     if (line.slice(0, 2) === '//') return say('', line.slice(1));
     if (line.charAt(0) !== '/') return say('', line);
     var sp = line.indexOf(' '), cmd = (sp < 0 ? line.slice(1) : line.slice(1, sp)).toLowerCase(), arg = sp < 0 ? '' : line.slice(sp + 1).trim();
-    var u, name;
+    var u, name, l;
     switch (cmd) {
       case 'g': case 'general': case 'home': return joinRoom('general');
       case 'join': case 'j': return joinRoom(cleanRoom(arg));
@@ -811,7 +1153,7 @@ body.dec #d{display:block}
         return api({ op: 'leave', arg: name }, function (j) {
           var r = S.rooms[j.room];
           if (r) r.members = r.members.filter(function (id) { return id !== S.me.id; });
-          fixTarget(); sys('left #' + j.room); view().all(); side();
+          fixTarget(); toast('left #' + j.room); view().all(); side();
         });
       case 'dm': case 'msg': case 'm': case 'w': case 'query':
         sp = arg.indexOf(' ');
@@ -819,40 +1161,43 @@ body.dec #d{display:block}
         if (!whom) return sys('usage: /dm name [message]');
         u = findUser(whom);
         if (!u) return sys('no one called ' + whom + ' · /who');
-        touchDM(u.id); open('@' + u.id);
+        touchDM(u.id); open('@' + u.id, true);
         if (text) say(S.target, text);
         return;
       case 'r': case 'reply':
         if (!S.lastDM) return sys('no one has messaged you yet');
-        if (!arg) return open('@' + S.lastDM);
+        if (!arg) return open('@' + S.lastDM, true);
         return say('@' + S.lastDM, arg);
       case 'nick': case 'name': return rename(arg);
-      case 'who': case 'users': case 'online': case 'here': return who(arg);
+      case 'who': case 'users': case 'online': case 'here': case 'people': return who(arg);
       case 'rooms': case 'list':
-        var parts = [];
+        var rows = [];
         for (var n in S.rooms) {
           var on = S.rooms[n].members.filter(function (id) { return S.users[id] && S.users[id].on; }).length;
-          parts.push('#' + n + ' ' + on + (inRoom(n) ? '*' : ''));
+          rows.push('#' + n + '\t' + on + ' here' + (inRoom(n) ? " · you're in it" : ''));
         }
-        parts.sort();
-        return sys("rooms (* = you're in it): " + parts.join(' · ') + ' · /join #name');
+        rows.sort();
+        return block(['## rooms · /join #name'].concat(rows));
       case 'info':
         return sys('connected to ' + location.origin + (S.addr.length ? ' · share: ' + S.addr.join('  ') : '') + ' · app: ' + location.origin + '/get');
       case 'send': case 'file': case 'upload': return $('fileIn').click();
-      case 'get': case 'download': case 'save': return getFile(parseInt(arg, 10) || 0);
+      case 'get': case 'download': case 'save': return getFile(parseInt(arg.replace('#', ''), 10) || 0);
+      case 'see': case 'view': case 'open': case 'look':
+        l = findFile(parseInt(arg.replace('#', ''), 10) || 0);
+        return l ? see(l) : sys('no such file · /files lists them');
       case 'files': return listFiles();
-      case 'ui': case 'view': case 'look': return setMode(arg === 'term' || arg === 'terminal' || (!arg && S.mode === 'chat') ? 'term' : 'chat');
+      case 'ui': case 'mode': return setMode(arg === 'term' || arg === 'terminal' || (!arg && S.mode === 'chat') ? 'term' : 'chat');
       case 'dim': case 'ghost': body.classList.toggle('g'); return;
       case 'fade':
         S.fade = (arg === 'off' || arg === '0') ? 0 : (parseInt(arg, 10) || 30);
         sys(S.fade ? 'messages now fade after ' + S.fade + 's · /fade off' : 'fade off'); return view().all();
-      case 'focus':
-        S.focus = !S.focus;
-        sys(S.focus ? "showing only the chat you're in (Tab to switch)" : 'showing every chat'); return view().all();
+      case 'all': case 'focus':
+        S.all = !S.all;
+        sys(S.all ? 'every chat together (in the terminal look) · /all again for one at a time' : 'one chat at a time'); return view().all();
       case 'autohide':
         S.auto = !S.auto; store('auto', S.auto ? '1' : null);
         return sys(S.auto ? 'the page now hides itself when you switch away' : 'autohide off');
-      case 'clear': case 'cls': S.lines = []; return view().all();
+      case 'clear': case 'cls': S.lines = S.lines.filter(function (x) { return x.key !== S.target && x.key; }); return view().all();
       case 'hide': return decoy(true);
       case 'key':
         S.key = arg; store('key', arg || null); S.fatal = false; sys('key set · reconnecting'); return connect();
@@ -869,26 +1214,29 @@ body.dec #d{display:block}
   }
   function askKey() {
     if (S.mode === 'term') { S.ask = 'key'; $('tin').type = 'password'; view().prompt(); return; }
-    var k = window.prompt('This room has a key. Type it to join:');
-    if (k !== null) { S.key = k; store('key', k || null); S.fatal = false; connect(); }
-  }
-  function answer(v) {
-    v = v.trim();
-    if (S.ask === 'nick') {
-      var n = v.replace(/^@/, '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 16);
-      if (!n) return sys('letters and digits only, please');
-      S.nick = n; store('nick', n); S.ask = ''; view().all(); side(); connect();
-    } else if (S.ask === 'key') {
-      S.key = v; store('key', v || null); S.ask = ''; $('tin').type = 'text'; S.fatal = false; view().prompt(); connect();
-    }
+    ask('This room has a key', 'Room key', '', function (k) { S.key = k; store('key', k || null); S.fatal = false; connect(); }, true);
   }
   function submit(v) {
-    if (S.ask) return answer(v);
+    if (S.ask === 'key') { S.key = v.trim(); store('key', S.key || null); S.ask = ''; $('tin').type = 'text'; S.fatal = false; view().prompt(); return connect(); }
     if (v.trim() && S.hist[S.hist.length - 1] !== v) S.hist.push(v);
     if (S.hist.length > 100) S.hist.shift();
     S.hpos = S.hist.length;
     input(v);
   }
+
+  // ---- welcome ----
+  function welcome() {
+    $('welcome').classList.add('on');
+    setTimeout(function () { $('wname').focus(); }, 50);
+  }
+  $('wform').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var n = $('wname').value.replace(/^@/, '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 16);
+    if (!n) { toast('letters and digits only, please'); return; }
+    S.nick = n; store('nick', n);
+    $('welcome').classList.remove('on');
+    side(); connect(); view().focus();
+  });
 
   // ---- keys and buttons ----
   function decoy(on) {
@@ -897,51 +1245,110 @@ body.dec #d{display:block}
     if (on) { $('tin').blur(); $('cin').blur(); } else view().focus();
   }
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' || e.keyCode === 27) { e.preventDefault(); decoy(!body.classList.contains('dec')); }
+    if (e.key === 'Escape' || e.keyCode === 27) {
+      e.preventDefault();
+      if ($('sugg').classList.contains('on') && !body.classList.contains('dec')) { hideSugg(); }
+      decoy(!body.classList.contains('dec'));
+    } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); cycle(e.key === 'ArrowUp' ? -1 : 1); }
   });
   window.addEventListener('blur', function () { if (S.auto) decoy(true); });
+
+  // terminal box: Tab completes (shows the choices above when there are several)
   $('tin').addEventListener('keydown', function (e) {
     if (e.isComposing || e.keyCode === 229) return;
-    if (e.key === 'Enter') { e.preventDefault(); var v = $('tin').value; $('tin').value = ''; submit(v); }
-    else if (e.key === 'Tab') { e.preventDefault(); cycle(e.shiftKey ? -1 : 1); }
-    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      if (!S.hist.length) return;
+    var t = $('tin');
+    if (e.key === 'Enter') { e.preventDefault(); var v = t.value; t.value = ''; $('tsug').textContent = ''; submit(v); }
+    else if (e.key === 'Tab') {
+      e.preventDefault();
+      if (S.ask) return;
+      var nv = complete(t.value), s = suggest(t.value);
+      if (nv !== t.value) { t.value = nv; $('tsug').textContent = ''; }
+      else if (s.length > 1) $('tsug').textContent = s.map(function (x) { return x[0]; }).join('   ');
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      if (e.altKey || !S.hist.length) return;
       e.preventDefault();
       S.hpos = Math.max(0, Math.min(S.hist.length, S.hpos + (e.key === 'ArrowUp' ? -1 : 1)));
-      $('tin').value = S.hist[S.hpos] || '';
-    }
+      t.value = S.hist[S.hpos] || '';
+    } else $('tsug').textContent = '';
   });
-  var cin = $('cin');
-  function grow() { cin.style.height = 'auto'; cin.style.height = Math.min(cin.scrollHeight, 160) + 'px'; }
-  cin.addEventListener('input', function () { grow(); if (cin.value.charAt(0) !== '/') typed(); });
+  $('tlog').addEventListener('scroll', function () { if ($('tlog').scrollTop < 60) loadOlder(); });
+
+  // chat box: suggestions pop up as you type a /command
+  var cin = $('cin'), sel = 0, cur = [];
+  function grow() {
+    cin.style.height = 'auto'; cin.style.height = Math.min(cin.scrollHeight, 170) + 'px';
+    $('sendBtn').classList.toggle('ready', !!cin.value.trim());
+  }
+  function hideSugg() { $('sugg').classList.remove('on'); cur = []; }
+  function showSugg() {
+    cur = suggest(cin.value);
+    var box = $('sugg');
+    if (!cur.length || !cin.value) return hideSugg();
+    sel = Math.min(sel, cur.length - 1);
+    box.textContent = '';
+    cur.forEach(function (x, i) {
+      var r = el('div', 'sg' + (i === sel ? ' sel' : ''));
+      r.appendChild(el('code', '', x[0])); r.appendChild(el('span', '', x[2] || ''));
+      r.onmousedown = function (e) { e.preventDefault(); pick(i); };
+      box.appendChild(r);
+    });
+    var was = box.classList.contains('on');
+    box.classList.add('on');
+    if (!was) { box.style.animation = 'none'; void box.offsetWidth; box.style.animation = ''; }
+    var s = box.children[sel]; if (s && s.scrollIntoView) s.scrollIntoView({ block: 'nearest' });
+  }
+  function pick(i) { cin.value = cur[i][1]; sel = 0; grow(); showSugg(); cin.focus(); }
+  cin.addEventListener('input', function () { grow(); sel = 0; showSugg(); if (cin.value && cin.value.charAt(0) !== '/') typed(); });
   cin.addEventListener('keydown', function (e) {
     if (e.isComposing || e.keyCode === 229) return;
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('composer').requestSubmit ? $('composer').requestSubmit() : send(); }
-    else if (e.key === 'Tab') { e.preventDefault(); cycle(e.shiftKey ? -1 : 1); }
+    var open = $('sugg').classList.contains('on');
+    if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && !e.altKey) {
+      e.preventDefault(); sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + cur.length) % cur.length; showSugg();
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      if (open) pick(sel);
+      else { cin.value = complete(cin.value); grow(); showSugg(); }
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (open && cur[sel] && cur[sel][1].trim() !== cin.value.trim() && cin.value.indexOf(' ') < 0) return pick(sel);
+      send();
+    }
   });
-  function send() { var v = cin.value; cin.value = ''; grow(); submit(v); }
+  cin.addEventListener('blur', function () { setTimeout(hideSugg, 120); });
+  function send() { var v = cin.value; cin.value = ''; grow(); hideSugg(); submit(v); }
   $('composer').addEventListener('submit', function (e) { e.preventDefault(); send(); });
+  var msgs = $('msgs');
+  msgs.addEventListener('scroll', function () {
+    if (msgs.scrollTop < 80) loadOlder();
+    $('jump').classList.toggle('on', msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight > 500);
+  });
+  $('jump').onclick = function () { msgs.scrollTo({ top: msgs.scrollHeight, behavior: 'smooth' }); };
+  $('find').addEventListener('input', function () { S.filter = $('find').value; side(); });
+
   $('attachBtn').appendChild(icon('clip'));
   $('sendBtn').appendChild(icon('send'));
-  $('menuBtn').appendChild(icon('menu'));
+  $('backBtn').appendChild(icon('back'));
   $('termBtn').appendChild(icon('term'));
   $('hideBtn').appendChild(icon('hide'));
+  $('newRoom').appendChild(icon('plus'));
+  $('findIc').innerHTML = ICONS.search;
+  $('whoBtn').appendChild(icon('users'));
+  $('jump').appendChild(icon('chev'));
   $('attachBtn').onclick = function () { $('fileIn').click(); };
-  $('menuBtn').onclick = function () { body.classList.toggle('side'); };
+  $('backBtn').onclick = function () { body.classList.remove('inchat'); };
   $('termBtn').onclick = function () { setMode('term'); };
   $('hideBtn').onclick = function () { decoy(true); };
-  $('renameBtn').onclick = function () { var n = window.prompt('Your new name:', S.nick); if (n) rename(n); };
-  $('newRoom').onclick = function () { var n = window.prompt('Room name (letters, digits, - and _):'); if (n) joinRoom(cleanRoom(n)); };
+  $('whoBtn').onclick = function () { who(S.target.charAt(0) === '#' ? S.target : ''); };
+  $('newRoom').onclick = function () { ask('New room', 'room name', '', function (n) { if (cleanRoom(n)) joinRoom(cleanRoom(n)); }); };
   document.addEventListener('click', function (e) {
     if (body.classList.contains('dec') || window.getSelection().toString()) return;
     if (S.mode === 'term') $('tin').focus();
-    else if (body.classList.contains('side') && !e.target.closest('aside') && !e.target.closest('#menuBtn')) body.classList.remove('side');
   });
 
   body.classList.remove('chat', 'term'); body.classList.add(S.mode);
-  if (!S.nick) { S.ask = 'nick'; if (S.mode === 'term') sys('type your name and press Enter'); }
+  if (window.innerWidth > 760) body.classList.add('inchat');
   view().all(); side();
-  connect();
+  if (!S.nick) welcome(); else connect();
   view().focus();
 })();
 </script>

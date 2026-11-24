@@ -21,7 +21,7 @@ func runPlain(c *Client, o uiOpts) {
 	flush := func() {
 		mu.Lock()
 		defer mu.Unlock()
-		v := c.View(maxLines)
+		v := c.View(maxLines, false)
 		var fresh []Line
 		for _, l := range v.Lines {
 			if l.Seq > printed {

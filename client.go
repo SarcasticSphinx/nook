@@ -37,7 +37,7 @@ const (
 	endFatal
 )
 
-const maxLines = 3000
+const maxLines = 6000
 
 // Line is one row of the conversation as this client shows it.
 type Line struct {
@@ -52,6 +52,8 @@ type Line struct {
 	Mine bool
 
 	Notice bool // a system line worth noticing (someone changed their name)
+	// A system line's Key is the chat it belongs to ("" = every chat):
+	// what you typed a command in, or the room someone joined.
 	Raw    bool // shown as is, without time (/help, /who)
 	File   *FileInfo
 	FileNo int // the number /get uses
@@ -100,6 +102,8 @@ type Client struct {
 	dms             []string
 	lastDM          string
 	lastRead        map[string]int64 // per chat: the last line you've seen
+	older           map[string]int   // per chat: olderMore (default), olderBusy, olderDone
+	viewer          func(f FileInfo, no int, data []byte)
 	fileNo          int
 	busy            map[string]string // file transfers in progress
 	state           int
@@ -134,6 +138,7 @@ func NewClient(o ClientOpts) *Client {
 		seen:     map[int64]bool{},
 		target:   "#" + general,
 		lastRead: map[string]int64{},
+		older:    map[string]int{},
 		busy:     map[string]string{},
 		sc:       &http.Client{Transport: tr},
 		hc:       &http.Client{Transport: tr, Timeout: 6 * time.Second},
@@ -456,6 +461,7 @@ func (c *Client) handle(ev *Ev) (res endResult) {
 		newHub := ev.Hub != c.hubID
 		if newHub {
 			c.seen = map[int64]bool{} // message ids restart with every hub
+			c.older = map[string]int{}
 			c.hubID = ev.Hub
 		}
 		c.sid = ev.SID
@@ -485,13 +491,13 @@ func (c *Client) handle(ev *Ev) (res endResult) {
 		c.state = stOnline
 		if newHub {
 			if c.o.Status != nil {
-				c.sysLocked(c.o.Status() + " · /help")
+				c.globalLocked(c.o.Status() + " · /help")
 			} else if c.hub != nil && c.url == localURL(c.hub.Port()) {
 				where := "no network yet — connect to the Wi-Fi"
 				if len(c.addrs) > 0 {
 					where = strings.Join(c.addrs, "  ")
 				}
-				c.sysLocked("you're hosting · others join: " + where)
+				c.globalLocked("you're hosting · others join: " + where)
 			} else {
 				n := 0
 				for _, u := range c.users {
@@ -499,7 +505,7 @@ func (c *Client) handle(ev *Ev) (res endResult) {
 						n++
 					}
 				}
-				c.sysLocked(fmt.Sprintf("connected · %d online · /help", n))
+				c.globalLocked(fmt.Sprintf("connected · %d online · /help", n))
 			}
 		}
 	case "msg":
@@ -540,12 +546,12 @@ func (c *Client) handle(ev *Ev) (res endResult) {
 			if r.Name != general && wasIn && nowIn {
 				for _, id := range r.Members {
 					if id != c.me.ID && !has(old.Members, id) {
-						c.sysLocked(c.nickLocked(id) + " joined #" + r.Name)
+						c.sysToLocked("#"+r.Name, c.nickLocked(id)+" joined #"+r.Name)
 					}
 				}
 				for _, id := range old.Members {
 					if id != c.me.ID && !has(r.Members, id) {
-						c.sysLocked(c.nickLocked(id) + " left #" + r.Name)
+						c.sysToLocked("#"+r.Name, c.nickLocked(id)+" left #"+r.Name)
 					}
 				}
 			}
@@ -554,17 +560,17 @@ func (c *Client) handle(ev *Ev) (res endResult) {
 			}
 		}
 	case "moved":
-		c.sysLocked("the room moved to another host · following")
+		c.globalLocked("the room moved to another host · following")
 		res = endResult{kind: endMoved, url: ev.URL}
 	case "bye":
-		c.sysLocked("the host left · finding a new one")
+		c.globalLocked("the host left · finding a new one")
 		res = endResult{kind: endBye, next: ev.Next}
 	case "err":
 		c.fatal = ev.Text
-		c.sysLocked(ev.Text + " · /key PASSWORD to try again")
+		c.globalLocked(ev.Text + " · /key PASSWORD to try again")
 		res = endResult{kind: endFatal}
 	case "sys":
-		c.sysLocked(ev.Text)
+		c.globalLocked(ev.Text)
 	}
 	c.mu.Unlock()
 	c.changed()
@@ -619,10 +625,17 @@ func (c *Client) insertLocked(l Line) {
 	}
 }
 
-func (c *Client) sysLocked(text string) {
-	c.insertLocked(Line{Sys: true, TS: nowMs(), Text: text})
+// sysLocked shows a local note in the chat you're in.
+func (c *Client) sysLocked(text string) { c.sysToLocked(c.target, text) }
+
+func (c *Client) sysToLocked(key, text string) {
+	c.insertLocked(Line{Sys: true, Key: key, TS: nowMs(), Text: text})
 }
 
+// globalLocked shows a note in every chat (connection news).
+func (c *Client) globalLocked(text string) { c.sysToLocked("", text) }
+
+// noticeLocked: news everyone should see wherever they are (a new name).
 func (c *Client) noticeLocked(text string) {
 	c.insertLocked(Line{Sys: true, Notice: true, TS: nowMs(), Text: text})
 }
@@ -632,7 +645,7 @@ func (c *Client) sysLines(lines ...string) {
 	c.mu.Lock()
 	now := nowMs()
 	for _, l := range lines {
-		c.insertLocked(Line{Sys: true, Raw: true, TS: now, Text: l})
+		c.insertLocked(Line{Sys: true, Raw: true, Key: c.target, TS: now, Text: l})
 	}
 	c.mu.Unlock()
 	c.changed()
@@ -752,7 +765,18 @@ type View struct {
 	People []UserInfo // everyone known: here first, then away
 	Chats  []ChatTab  // your rooms and DMs
 	Busy   []string   // file transfers in progress
+	Rooms  []string   // every room there is, for Tab completion
+	Only   bool       // Lines are only the chat you're in
+	Older  int        // that chat: olderMore, olderBusy or olderDone
+	Peek   *Line      // the newest message you haven't seen in another chat
 }
+
+// What is known about a chat's earlier messages.
+const (
+	olderMore = iota // there may be more: scrolling to the top asks for them
+	olderBusy        // asking
+	olderDone        // you're at the very start
+)
 
 // ChatTab is one of your chats, with how many messages you haven't seen.
 type ChatTab struct {
@@ -770,20 +794,32 @@ func (v *View) label(key string) string {
 	return key
 }
 
-func (c *Client) View(n int) View {
+// View is what to draw: the newest n lines of every chat, or with only
+// set, of just the chat you're in (plus news meant for every chat).
+func (c *Client) View(n int, only bool) View {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	start := 0
-	if len(c.lines) > n {
-		start = len(c.lines) - n
+	v := View{Only: only, Older: c.older[c.target]}
+	if only {
+		var idx []int
+		for i := len(c.lines) - 1; i >= 0 && len(idx) < n; i-- {
+			if k := c.lines[i].Key; k == c.target || k == "" {
+				idx = append(idx, i)
+			}
+		}
+		v.Lines = make([]Line, len(idx))
+		for j, i := range idx {
+			v.Lines[len(idx)-1-j] = c.lines[i]
+		}
+	} else {
+		start := 0
+		if len(c.lines) > n {
+			start = len(c.lines) - n
+		}
+		v.Lines = append([]Line(nil), c.lines[start:]...)
 	}
-	v := View{
-		Lines:  append([]Line(nil), c.lines[start:]...),
-		Target: c.target,
-		Label:  c.labelLocked(c.target),
-		State:  c.state,
-		Nicks:  make(map[string]string, len(c.users)),
-	}
+	v.Target, v.Label, v.State = c.target, c.labelLocked(c.target), c.state
+	v.Nicks = make(map[string]string, len(c.users))
 	for id, u := range c.users {
 		v.Nicks[id] = u.Nick
 	}
@@ -805,8 +841,16 @@ func (c *Client) View(n int) View {
 	for i := range c.lines {
 		if l := &c.lines[i]; !l.Sys && !l.Mine && l.Seq > c.lastRead[l.Key] {
 			unread[l.Key]++
+			if only && l.Key != c.target && (v.Peek == nil || l.Seq > v.Peek.Seq) {
+				cp := *l
+				v.Peek = &cp
+			}
 		}
 	}
+	for name := range c.rooms {
+		v.Rooms = append(v.Rooms, "#"+name)
+	}
+	sort.Strings(v.Rooms)
 	for _, k := range append(c.myRoomsLocked(), prefixAll("@", c.dms)...) {
 		v.Chats = append(v.Chats, ChatTab{Key: k, Label: c.labelLocked(k), Unread: unread[k]})
 	}
@@ -832,6 +876,60 @@ func (c *Client) Goto(key string) {
 
 // Poke asks the screen to redraw (e.g. Bluetooth status changed).
 func (c *Client) Poke() { c.changed() }
+
+// Older asks the host for the messages before the oldest one you have in
+// a chat: what scrolling to the top of a chat does. It never runs twice
+// at once, and stops once the chat's very first message is here.
+func (c *Client) Older(key string) {
+	c.mu.Lock()
+	if key == "" || c.older[key] != olderMore || c.state != stOnline {
+		c.mu.Unlock()
+		return
+	}
+	before := int64(0)
+	for i := range c.lines {
+		if l := &c.lines[i]; l.Key == key && l.ID > 0 && (before == 0 || l.ID < before) {
+			before = l.ID
+		}
+	}
+	c.older[key] = olderBusy
+	base, sid := c.url, c.sid
+	c.mu.Unlock()
+	c.changed()
+	go func() {
+		next := olderMore
+		var out Resp
+		body, _ := json.Marshal(Req{SID: sid, Op: "older", To: key, Arg: fmt.Sprint(before)})
+		resp, err := c.hc.Post(base+"/api", "application/json", bytes.NewReader(body))
+		if err == nil {
+			err = json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&out)
+			resp.Body.Close()
+		}
+		c.mu.Lock()
+		added := 0
+		if err == nil && out.OK {
+			for _, m := range out.Hist {
+				if !c.seen[m.ID] {
+					added++
+				}
+				c.addMsgLocked(m)
+			}
+			if !out.More || added == 0 {
+				next = olderDone
+			}
+		}
+		c.mu.Unlock()
+		if err != nil || !out.OK { // try again on the next scroll, not in a loop
+			time.Sleep(2 * time.Second)
+		}
+		c.mu.Lock()
+		if c.older[key] == olderBusy {
+			c.older[key] = next
+		}
+		c.mu.Unlock()
+		c.changed()
+	}()
+}
 
 // ---- commands ----
 
@@ -865,6 +963,8 @@ func (c *Client) Input(line string) {
 		c.get(arg)
 	case "files":
 		c.listFiles()
+	case "see", "view", "open", "look", "cat":
+		c.see(arg)
 	case "g", "general", "home":
 		c.Goto("#" + general)
 	case "join", "j":
@@ -1251,26 +1351,53 @@ func (c *Client) setKey(key string) {
 }
 
 func (c *Client) help() {
-	c.sysLines(
-		"keys",
-		"  Esc           hide the chat behind a normal-looking prompt (Esc again: back)",
-		"  Ctrl+C        quit at once",
-		"  Tab           next chat     Shift+Tab: previous     Ctrl+G: back to #general",
-		"  PgUp / PgDn   scroll back   Ctrl+L: clear the screen",
-		"chats",
-		"  /g                 go back to #general",
-		"  /join #room        join or create a room       /leave   leave it",
-		"  /dm name [text]    private message             /r text  reply to the last one",
-		"  /who               who is here, and their rooms   /rooms  all rooms",
-		"  /nick name         change your name (everyone sees it)",
-		"files",
-		"  /send path         send a file to this chat (you can drag a file into the window)",
-		"  /get [n]           download file n, or the newest   /files  list them",
-		"looks",
-		"  /skin name         plain chat irc compact log code json",
-		"  /people  /bar      show the people list / the chat bar",
-		"  /dim  /fade 30     faint text / messages vanish after 30 seconds",
-		"  /focus             only show the chat you're in",
-		"  /info              Bluetooth status or the Wi-Fi address      /quit",
-	)
+	sec := func(name string, rows ...[2]string) []string {
+		out := []string{"│\t\t", "│  \t\t" + name}
+		for _, r := range rows {
+			out = append(out, "│  \t"+r[0]+"\t"+r[1])
+		}
+		return out
+	}
+	var lines []string
+	lines = append(lines, "╭─ nook help ───────────────────────────────")
+	lines = append(lines, sec("KEYS",
+		[2]string{"Esc", "hide the chat behind a normal prompt (Esc again: back)"},
+		[2]string{"Ctrl+C", "quit at once"},
+		[2]string{"Ctrl+N", "next chat (Ctrl+Tab too, if your terminal allows)"},
+		[2]string{"Ctrl+P", "previous chat"},
+		[2]string{"Ctrl+G", "back to #general"},
+		[2]string{"Tab", "finish a /command, a name or a room"},
+		[2]string{"wheel, PgUp", "scroll up through the chat"},
+		[2]string{"↑ ↓", "what you typed before"},
+		[2]string{"Ctrl+L", "clear the screen"},
+	)...)
+	lines = append(lines, sec("CHATS",
+		[2]string{"/g", "go back to #general"},
+		[2]string{"/join #room", "join or create a room"},
+		[2]string{"/leave", "leave the room you're in"},
+		[2]string{"/dm name text", "private message (opens your chat with them)"},
+		[2]string{"/r text", "reply to the last private message"},
+		[2]string{"/who", "who is here, and their rooms"},
+		[2]string{"/rooms", "every room"},
+		[2]string{"/nick name", "change your name (everyone is told)"},
+	)...)
+	lines = append(lines, sec("FILES",
+		[2]string{"/send path", "share a file here (or drag it into the window)"},
+		[2]string{"/see n", "look at file n without saving it"},
+		[2]string{"/get n", "save file n to Downloads"},
+		[2]string{"/files", "every file shared so far"},
+	)...)
+	lines = append(lines, sec("LOOKS",
+		[2]string{"/skin name", strings.Join(skins, " ")},
+		[2]string{"/people", "show or hide the people list"},
+		[2]string{"/bar", "show or hide the chat bar"},
+		[2]string{"/all", "every chat on one screen, or one at a time"},
+		[2]string{"/dim", "faint text"},
+		[2]string{"/fade 30", "messages vanish after 30 seconds"},
+		[2]string{"/mouse", "let the mouse select text instead of scrolling"},
+		[2]string{"/info", "Bluetooth status or the Wi-Fi address"},
+		[2]string{"/quit", "leave nook"},
+	)...)
+	lines = append(lines, "│\t\t", "╰─ nook "+version)
+	c.sysLines(lines...)
 }

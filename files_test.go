@@ -50,7 +50,7 @@ func TestWiFiFiles(t *testing.T) {
 	start := time.Now()
 	a.Input(strings.ReplaceAll(path, " ", `\ `))
 	waitFor(t, "file offer arrives", func() bool {
-		v := b.View(maxLines)
+		v := b.View(maxLines, false)
 		for _, l := range v.Lines {
 			if l.File != nil && l.File.Name == "big report.bin" && l.File.Size == int64(len(data)) {
 				return true
@@ -69,7 +69,7 @@ func TestWiFiFiles(t *testing.T) {
 	a.Input("/send " + dmPath)
 	var fileID string
 	waitFor(t, "DM file arrives", func() bool {
-		for _, l := range b.View(maxLines).Lines {
+		for _, l := range b.View(maxLines, false).Lines {
 			if l.File != nil && l.File.Name == "secret.txt" {
 				fileID = l.File.ID
 				return true
@@ -227,7 +227,7 @@ func TestWiFiDownloadResumes(t *testing.T) {
 }
 
 func hasFileLine(c *Client, name string) bool {
-	for _, l := range c.View(maxLines).Lines {
+	for _, l := range c.View(maxLines, false).Lines {
 		if l.File != nil && l.File.Name == name {
 			return true
 		}

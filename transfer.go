@@ -338,30 +338,32 @@ func (c *Client) send(arg string) {
 	}()
 }
 
+// pickFile finds file number arg, or with arg "", the newest one someone
+// else shared.
+func (c *Client) pickFile(arg string) (l Line, ok bool) {
+	arg = strings.TrimPrefix(strings.TrimSpace(arg), "#")
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for i := len(c.lines) - 1; i >= 0; i-- {
+		x := &c.lines[i]
+		if x.File != nil && (arg == "" && !x.Mine || arg == fmt.Sprint(x.FileNo)) {
+			cp := *x
+			cp.File = &FileInfo{}
+			*cp.File = *x.File
+			return cp, true
+		}
+	}
+	return Line{}, false
+}
+
 // get downloads file number n (or the newest one).
 func (c *Client) get(arg string) {
-	c.mu.Lock()
-	var pick *Line
-	for i := len(c.lines) - 1; i >= 0; i-- {
-		l := &c.lines[i]
-		if l.File == nil {
-			continue
-		}
-		if arg == "" && !l.Mine || arg == fmt.Sprint(l.FileNo) {
-			pick = l
-			break
-		}
-	}
-	var fi FileInfo
-	var from string
-	if pick != nil {
-		fi, from = *pick.File, pick.From
-	}
-	c.mu.Unlock()
-	if pick == nil {
+	pick, ok := c.pickFile(arg)
+	if !ok {
 		c.Sys("no such file · /files lists them")
 		return
 	}
+	fi, from := *pick.File, pick.From
 	if where, ok := saved.Load(fi.ID); ok {
 		c.Sys("already saved: " + where.(string))
 		return
@@ -380,7 +382,7 @@ func (c *Client) get(arg string) {
 		}
 		saved.Store(fi.ID, dest)
 		c.mu.Lock()
-		c.noticeLocked("saved " + fi.Name + " to " + dest)
+		c.insertLocked(Line{Sys: true, Notice: true, Key: pick.Key, TS: nowMs(), Text: "saved " + fi.Name + " to " + dest})
 		c.mu.Unlock()
 		c.changed()
 	}()
@@ -409,5 +411,93 @@ func (c *Client) listFiles() {
 		c.Sys("no files yet · /send path to share one")
 		return
 	}
-	c.sysLines(append([]string{"files (/get N to download)"}, out...)...)
+	c.sysLines(append([]string{"files · /see N to look · /get N to save"}, out...)...)
 }
+
+// maxSee is the biggest file /see opens (it is kept in memory, not saved).
+const maxSee = 20 << 20
+
+// SetViewer gives the full-screen view a way to show a file; without one
+// (line mode) /see prints text files and describes the rest.
+func (c *Client) SetViewer(f func(fi FileInfo, no int, data []byte)) {
+	c.mu.Lock()
+	c.viewer = f
+	c.mu.Unlock()
+}
+
+// see shows a shared file without saving it: fetched into memory through a
+// private temporary file that is deleted at once.
+func (c *Client) see(arg string) {
+	pick, ok := c.pickFile(arg)
+	if !ok {
+		c.Sys("no such file · /files lists them")
+		return
+	}
+	fi, from := *pick.File, pick.From
+	if fi.Size > maxSee {
+		c.Sys(fmt.Sprintf("%s is too big to look at here (%s) · /get %d saves it", fi.Name, humanSize(fi.Size), pick.FileNo))
+		return
+	}
+	show := func(data []byte) {
+		c.mu.Lock()
+		v := c.viewer
+		c.mu.Unlock()
+		if v != nil {
+			v(fi, pick.FileNo, data)
+			return
+		}
+		pv := makePreview(fi.Name, data)
+		if pv.kind != pvText {
+			c.Sys(fi.Name + ": " + pv.note + fmt.Sprintf(" · /get %d saves it", pick.FileNo))
+			return
+		}
+		lines := []string{"── " + fi.Name + " ──"}
+		for i, l := range pv.text {
+			if i == 300 {
+				lines = append(lines, fmt.Sprintf("  ... %d more lines · /get %d", len(pv.text)-300, pick.FileNo))
+				break
+			}
+			lines = append(lines, "  "+l)
+		}
+		c.sysLines(lines...)
+	}
+	if where, ok := saved.Load(fi.ID); ok {
+		if data, err := os.ReadFile(where.(string)); err == nil {
+			show(data)
+			return
+		}
+	}
+	if b, ok := seeCache.Load(fi.ID); ok {
+		show(b.([]byte))
+		return
+	}
+	if pick.Mine && c.o.Files != nil {
+		c.Sys("that's your own file · it's on your laptop")
+		return
+	}
+	id := "see:" + fi.ID
+	r := rate{time.Now()}
+	go func() {
+		dir, err := os.MkdirTemp("", "nook-see-")
+		var data []byte
+		if err == nil {
+			dest := filepath.Join(dir, "f")
+			err = c.files().Fetch(&fi, from, dest, func(done, total int64) {
+				c.setBusy(id, r.text("opening", fi.Name, done, total))
+			})
+			if err == nil {
+				data, err = os.ReadFile(dest)
+			}
+			os.RemoveAll(dir)
+		}
+		c.setBusy(id, "")
+		if err != nil {
+			c.Sys("couldn't open " + fi.Name + ": " + err.Error())
+			return
+		}
+		rememberSeen(fi.ID, data) // looking again is instant (Bluetooth is slow)
+		show(data)
+	}()
+}
+
+var seeCache sync.Map // file id -> its bytes, for files opened with /see

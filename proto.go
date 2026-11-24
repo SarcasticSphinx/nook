@@ -79,7 +79,7 @@ type FileInfo struct {
 
 type Req struct {
 	SID  string `json:"sid"`
-	Op   string `json:"op"` // say join leave nick
+	Op   string `json:"op"` // say join leave nick typing older
 	To   string `json:"to,omitempty"`
 	Text string `json:"text,omitempty"`
 	Arg  string `json:"arg,omitempty"`
@@ -90,6 +90,8 @@ type Resp struct {
 	Err  string `json:"err,omitempty"`
 	Room string `json:"room,omitempty"`
 	Nick string `json:"nick,omitempty"`
+	Hist []Msg  `json:"hist,omitempty"` // op "older"
+	More bool   `json:"more,omitempty"` // op "older": there is more before these
 }
 
 // HubInfo describes a running hub. It is what discovery and /ping return.

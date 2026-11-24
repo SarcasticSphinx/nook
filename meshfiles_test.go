@@ -7,7 +7,7 @@ import (
 )
 
 func fileLine(c *Client, name string) *Line {
-	v := c.View(maxLines)
+	v := c.View(maxLines, false)
 	for i := range v.Lines {
 		if l := &v.Lines[i]; l.File != nil && l.File.Name == name {
 			return l

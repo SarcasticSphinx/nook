@@ -59,7 +59,7 @@ func online(t *testing.T, cs ...*Client) {
 }
 
 func sees(c *Client, key, text string) bool {
-	v := c.View(maxLines)
+	v := c.View(maxLines, false)
 	for _, l := range v.Lines {
 		if !l.Sys && l.Text == text && (key == "" || l.Key == key) {
 			return true
@@ -69,7 +69,7 @@ func sees(c *Client, key, text string) bool {
 }
 
 func sysSays(c *Client, part string) bool {
-	v := c.View(maxLines)
+	v := c.View(maxLines, false)
 	for _, l := range v.Lines {
 		if l.Sys && strings.Contains(l.Text, part) {
 			return true
@@ -78,7 +78,7 @@ func sysSays(c *Client, part string) bool {
 	return false
 }
 
-func target(c *Client) string { v := c.View(1); return v.Target }
+func target(c *Client) string { v := c.View(1, false); return v.Target }
 
 func TestChat(t *testing.T) {
 	h := testHub(t, "")
@@ -150,7 +150,7 @@ func TestComeBackKeepsNameAndDMs(t *testing.T) {
 	b2 := testClient(t, h, "bina", "")
 	online(t, b2)
 	waitFor(t, "dm survives restart", func() bool { return sees(b2, "", "see you") })
-	if v := b2.View(1); v.Nicks[b2.MeID()] != "bina" {
+	if v := b2.View(1, false); v.Nicks[b2.MeID()] != "bina" {
 		t.Fatalf("came back as %q", v.Nicks[b2.MeID()])
 	}
 }

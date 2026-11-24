@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/rivo/uniseg"
 )
 
 // How a line looks is decided here, once, for the full-screen view and the
@@ -21,6 +23,8 @@ const (
 	pDM            // a DM label
 	pNotice        // something worth noticing: someone changed their name
 	pFile          // a file
+	pCmd           // a key or a /command in help
+	pHead          // a heading in help
 )
 
 type part struct {
@@ -67,7 +71,7 @@ type lineInfo struct {
 	room     string
 	text     string
 	fileText string // "report.pdf · 2.4 MB"
-	fileHint string // "/get 3"
+	fileHint string // "/see 3  /get 3"
 }
 
 func describe(l *Line, v *View) lineInfo {
@@ -88,7 +92,9 @@ func describe(l *Line, v *View) lineInfo {
 	if l.File != nil {
 		in.fileText = "[file] " + l.File.Name + " · " + humanSize(l.File.Size)
 		if !l.Mine {
-			in.fileHint = fmt.Sprintf("/get %d", l.FileNo)
+			in.fileHint = fmt.Sprintf("/see %d  /get %d", l.FileNo, l.FileNo)
+		} else {
+			in.fileHint = fmt.Sprintf("/see %d", l.FileNo)
 		}
 	}
 	return in
@@ -102,8 +108,8 @@ func nameKind(in lineInfo) int {
 }
 
 func pad(s string, n int) string {
-	for len(s) < n { // names are ASCII, so bytes == columns
-		s += " "
+	if w := uniseg.StringWidth(s); w < n {
+		s += strings.Repeat(" ", n-w)
 	}
 	return s
 }
@@ -112,6 +118,16 @@ func pad(s string, n int) string {
 // (the chat skin groups messages from the same person).
 func fmtLine(l, prev *Line, v *View, skin string) []para {
 	if l.Raw { // help and lists: as they are; headings stand out
+		if f := strings.Split(l.Text, "\t"); len(f) == 3 { // rail, key, what it does
+			ps := []part{{f[0], pMeta, ""}}
+			switch {
+			case f[1] == "" && f[2] != "":
+				ps = append(ps, part{f[2], pHead, ""})
+			case f[1] != "":
+				ps = append(ps, part{pad(f[1], 16), pCmd, ""}, part{f[2], pText, ""})
+			}
+			return []para{{parts: ps}}
+		}
 		k := pMeta
 		if !strings.HasPrefix(l.Text, " ") {
 			k = pText
@@ -158,9 +174,9 @@ func fmtLine(l, prev *Line, v *View, skin string) []para {
 		if !grouped {
 			head := []part{name}
 			switch {
-			case in.dm && l.Mine:
+			case in.dm && !in.current && l.Mine:
 				head = append(head, part{" to " + in.peer, pDM, ""})
-			case in.dm:
+			case in.dm && !in.current:
 				head = append(head, part{" · DM", pDM, ""})
 			case !in.current:
 				head = append(head, part{" in " + in.room, pRoom, ""})

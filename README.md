@@ -9,11 +9,11 @@ terminal (VS Code's included) and looks like nothing much: press **Esc** and
 it turns into an ordinary shell prompt.
 
 ```
- #general  @rafi 1                                    3 here · Tab: switch
+ #general   @rafi 1                               3 here · ^N next chat
 09:41  rafi     anyone done with question 3?
 09:41  tanvir   not yet, stuck on part b
-09:42  rafi     [file] diagram.png · 33 KB  /get 1
-09:43  DM  rafi     psst, the trick is the second loop
+09:42  rafi     [file] diagram.png · 33 KB  /see 1  /get 1
+↳ DM from rafi: psst, the trick is the second loop               ^N
 #general> _
 ```
 
@@ -99,7 +99,9 @@ needs two laptops: one computer can't link to itself.
 |---|---|
 | **Esc** | hide: the screen becomes a normal shell prompt (`you@laptop folder %` or `PS C:\...>`). You can type `ls`, `cd`, `pwd`, `clear` in it. Esc again brings the chat back. |
 | **Ctrl+C** | quit instantly. The terminal looks exactly as before. Press Up, Enter to come back. |
-| **Tab** / Shift+Tab | switch between your rooms and DMs (the bar at the top shows them, with unread counts) |
+| **Ctrl+N** / Ctrl+P | next / previous chat (the bar at the top shows your rooms and DMs, with unread counts; click one to open it). Ctrl+Tab works too where the terminal passes it on; most terminals keep it for their own tabs. |
+| **Tab** | finish what you're typing: a `/command`, a name, a room, a skin. Several matches show above the input; Tab again goes through them. |
+| **mouse wheel** | scroll up through the chat. At the top, older messages are fetched from the host, back to the very first one. `/mouse` turns this off so you can select text. |
 | **Ctrl+G** / `/g` | back to #general from anywhere |
 | `/dm name [text]` | private message (a name prefix is enough: `/dm raf hi`) |
 | `/r text` | reply to whoever messaged you last, without leaving the chat you're in |
@@ -108,10 +110,11 @@ needs two laptops: one computer can't link to itself.
 | `/people` | keep a list of everyone on the right side of the screen |
 | `/nick name` | change your name: everyone sees "rafi is now known as rafa", and your old messages show the new name |
 | `/send path` | share a file with the chat you're in. Or drag the file into the terminal window and press Enter. |
+| `/see 3` | look at file 3 without saving it: text inside the window, pictures drawn in colour, anything else described. `q` closes it, `g` saves it. |
 | `/get`, `/get 3`, `/files` | download the newest file (or number 3) to your Downloads folder; list the files shared so far |
 | `/skin next` | change the look (see below) |
 | `/dim`, `/fade 20` | faint text; messages disappear from the screen after 20 seconds (`/fade off`) |
-| `/focus` | show only the chat you're in |
+| `/all` | every chat mixed on one screen, the way nook 0.2 showed them (again for one at a time) |
 | `/colors`, `/bar` | colours on or off; the chat bar on or off |
 | Ctrl+L / `/clear`, PgUp / PgDn, Up / Down | clear the screen, scroll back, previous messages you typed |
 | `/info` | Bluetooth status, or the Wi-Fi address to share |
@@ -119,17 +122,19 @@ needs two laptops: one computer can't link to itself.
 
 `/help` shows all of this in the app.
 
-**Telling chats apart.** Lines from the chat you're in have no label. Lines
-from anywhere else say where they're from: `DM  rafi` (a DM to you),
-`DM to rafi` (one you sent), `#lab` (another room). DMs are always shown
-in their own colour; other rooms are faint.
+**One chat at a time.** Like a messenger, the screen shows only the chat
+you're in: a DM never mixes with #general. When something arrives
+elsewhere, the chat bar counts it and one row above the input shows the
+newest one (`↳ DM from rafi: ...`); Ctrl+N or a click takes you there.
+`/all` mixes every chat on one screen instead, with labels saying where
+each line is from (`DM  rafi`, `DM to rafi`, `#lab`).
 
 **Skins.** `/skin NAME` or `--skin NAME`:
 
 | Skin | Looks like |
 |---|---|
 | `plain` | the default: `09:41  rafi     anyone done?` |
-| `chat` | messages grouped by person, yours on the right |
+| `chat` | messages grouped by person, yours on the right, each name in its own soft colour |
 | `irc` | `[09:41] <rafi> anyone done?` |
 | `compact` | `rafi: anyone done?`, nothing else |
 | `log` | `09:41:07.120 INFO  general/rafi: anyone done?` |
@@ -148,13 +153,16 @@ discovery), `nook scan` (search harder when automatic finding is blocked),
 Open the host's address in any browser. It has two looks, switched with the
 button at the top right or `/ui chat` and `/ui term`:
 
-- **Chat**: bubbles grouped by person, your chats and everyone connected in
-  a side list (with unread counts and who's here), "rafi is typing", image
-  previews, and files by dragging them onto the page, pasting, or the
-  paperclip. On a phone the side list folds away behind a menu button.
+- **Chat**: a quiet, flat messenger. A chat list with the last message,
+  time and unread count; who's here along the top; bubbles grouped by
+  person, each name in its own faded colour; "rafi is typing"; picture
+  previews; files by dragging them onto the page, pasting, or the
+  paperclip, with an eye button to look at one without saving it. Typing
+  `/` lists the commands. Scrolling up fetches older messages. On a phone
+  the chat list is its own screen and a chat slides in over it.
 - **Terminal**: the same plain text look as the app.
 
-In both, Esc swaps in a page of study notes (the tab is called "notes" and
+In both, Alt+Up/Down switches chats, Tab finishes a command or a name, Esc swaps in a page of study notes (the tab is called "notes" and
 has no icon), the commands are the same as in the app, `/autohide` hides
 the chat whenever you click away, and Ctrl+W closes the tab while
 Ctrl+Shift+T brings it straight back, still signed in.
@@ -171,7 +179,7 @@ Ctrl+Shift+T brings it straight back, still signed in.
   beep, and nothing changes while it's hidden.
 - Over Bluetooth, nook advertises no name: only an anonymous service id.
 - **Chat history is never written to disk**; it lives only in memory. Files
-  are saved only when you `/get` them. A Wi-Fi host keeps shared files in a
+  are saved only when you `/get` them; `/see` keeps them in memory only. A Wi-Fi host keeps shared files in a
   temporary folder that it deletes when it quits.
 - For a real *narrow viewing angle*, a cheap **privacy screen filter** does
   what software can't. Lower brightness plus `/dim` gets you part of the way.
@@ -407,7 +415,9 @@ go run . wifi --id test                       # try Wi-Fi mode
 | `btmode.go` | starting Bluetooth mode, and `nook check` |
 | `hub.go` | the chat server: rooms, DMs, history; hosting and handing over in Wi-Fi mode |
 | `files.go` | the Wi-Fi host's file storage: uploads, downloads, clean-up |
-| `transfer.go` | `/send`, `/get` and `/files`, with progress and speed |
+| `transfer.go` | `/send`, `/get`, `/see` and `/files`, with progress and speed |
+| `viewer.go` | `/see`: text and pictures inside the terminal |
+| `complete.go` | Tab completion |
 | `discover.go` | finding Wi-Fi hosts (UDP broadcast) and `nook scan` |
 | `client.go` | connection, reconnection and failover, commands, `/who` and `/help` |
 | `format.go` | how a message looks in each skin |

@@ -20,7 +20,7 @@ import (
 type uiOpts struct {
 	Skin    string
 	Ghost   bool
-	Focus   bool
+	All     bool // every chat mixed together (/all); normally one chat at a time
 	Wipe    bool
 	NoBar   bool // hide the chat bar
 	People  bool // show the people list
@@ -32,7 +32,17 @@ var (
 	stMeta = tcell.StyleDefault.Foreground(tcell.ColorGray)
 	// muted colours for names, so a busy room is easy to follow
 	namePalette = []int{73, 137, 108, 139, 110, 173, 67, 133, 143, 168}
+	// the chat skin's names: soft, faded colours, one per person; yours is
+	// never one of theirs
+	brightPalette = []int{174, 108, 139, 180, 109, 145, 151, 181, 146, 144}
+	meColor       = 110
 )
+
+func brightColor(who string) tcell.Color {
+	h := fnv.New32a()
+	h.Write([]byte(who))
+	return tcell.PaletteColor(brightPalette[h.Sum32()%uint32(len(brightPalette))])
+}
 
 type cell struct {
 	r  []rune
@@ -62,6 +72,18 @@ type tui struct {
 	paste    bool
 	quit     bool
 	poked    int32
+
+	view    *viewer   // a file opened with /see
+	noMouse bool      // /mouse: let the terminal select text instead
+	comp    *compList // Tab completion in progress
+	tabs    []tabHit  // where each chat is on the bar, for clicks
+	peekKey string    // the chat the "new in ..." row points to
+	peekY   int
+}
+
+type tabHit struct {
+	x0, x1 int
+	key    string
 }
 
 func runTUI(c *Client, o uiOpts, s tcell.Screen) error {
@@ -80,8 +102,12 @@ func runTUI(c *Client, o uiOpts, s tcell.Screen) error {
 	u := &tui{c: c, s: s, o: o, decoy: newDecoy()}
 	s.SetStyle(tcell.StyleDefault)
 	s.EnablePaste()
+	u.setMouse()
 	s.Clear()
 	c.SetOnChange(u.poke)
+	c.SetViewer(func(fi FileInfo, no int, data []byte) {
+		s.PostEvent(tcell.NewEventInterrupt(func() { u.openViewer(fi, no, data) }))
+	})
 	c.Start()
 
 	done := make(chan struct{})
@@ -111,6 +137,8 @@ func runTUI(c *Client, o uiOpts, s tcell.Screen) error {
 			u.paste = ev.Start()
 		case *tcell.EventKey:
 			u.key(ev)
+		case *tcell.EventMouse:
+			u.mouse(ev)
 		case *tcell.EventInterrupt:
 			if f, ok := ev.Data().(func()); ok {
 				f() // run on the UI goroutine (used by tests)
@@ -121,6 +149,7 @@ func runTUI(c *Client, o uiOpts, s tcell.Screen) error {
 	}
 	close(done)
 	c.SetOnChange(nil)
+	c.SetViewer(nil)
 	s.Fini()
 	if o.Wipe {
 		wipeTerminal()
@@ -147,6 +176,7 @@ func (u *tui) key(ev *tcell.EventKey) {
 	if u.hidden {
 		if k == tcell.KeyEscape {
 			u.hidden = false
+			u.setMouse()
 			return
 		}
 		w, _ := u.s.Size()
@@ -154,6 +184,17 @@ func (u *tui) key(ev *tcell.EventKey) {
 			u.quit = true
 		}
 		return
+	}
+	if k == tcell.KeyEscape { // the boss key works everywhere, even in a file
+		u.hide()
+		return
+	}
+	if u.view != nil {
+		u.viewerKey(ev)
+		return
+	}
+	if k != tcell.KeyTab {
+		u.comp = nil
 	}
 	if u.paste { // pasted text: keep it on one line, never send half of it
 		switch k {
@@ -166,16 +207,18 @@ func (u *tui) key(ev *tcell.EventKey) {
 		}
 	}
 	switch k {
-	case tcell.KeyEscape:
-		u.hidden = true
 	case tcell.KeyEnter:
 		u.submit()
 	case tcell.KeyTab:
-		u.c.Cycle(1)
-		u.scroll = 0
-	case tcell.KeyBacktab:
-		u.c.Cycle(-1)
-		u.scroll = 0
+		if ev.Modifiers()&tcell.ModCtrl != 0 { // Ctrl+Tab, where the terminal passes it on
+			u.cycle(1)
+		} else {
+			u.complete()
+		}
+	case tcell.KeyCtrlN:
+		u.cycle(1)
+	case tcell.KeyCtrlP, tcell.KeyBacktab:
+		u.cycle(-1)
 	case tcell.KeyCtrlG:
 		u.c.Goto("#" + general)
 		u.scroll = 0
@@ -229,6 +272,63 @@ func (u *tui) key(ev *tcell.EventKey) {
 	case tcell.KeyRune:
 		if ev.Modifiers()&tcell.ModAlt == 0 {
 			u.insert(ev.Rune())
+		}
+	}
+}
+
+func (u *tui) cycle(dir int) {
+	u.c.Cycle(dir)
+	u.scroll = 0
+}
+
+func (u *tui) hide() {
+	u.hidden = true
+	u.s.DisableMouse() // the fake shell behaves like a real one: select, scroll
+}
+
+func (u *tui) setMouse() {
+	if u.noMouse || u.hidden {
+		u.s.DisableMouse()
+	} else {
+		u.s.EnableMouse(tcell.MouseButtonEvents)
+	}
+}
+
+// mouse: the wheel scrolls the chat (to older messages at the top), a
+// click on the bar opens that chat.
+func (u *tui) mouse(ev *tcell.EventMouse) {
+	if u.hidden {
+		return
+	}
+	b := ev.Buttons()
+	x, y := ev.Position()
+	if u.view != nil {
+		switch {
+		case b&tcell.WheelUp != 0:
+			u.view.off = imax(0, u.view.off-3)
+		case b&tcell.WheelDown != 0:
+			u.view.off = imin(u.view.off+3, imax(0, len(u.view.pv.text)-1))
+		}
+		return
+	}
+	switch {
+	case b&tcell.WheelUp != 0:
+		u.scroll += 3
+	case b&tcell.WheelDown != 0:
+		if u.scroll -= 3; u.scroll < 0 {
+			u.scroll = 0
+		}
+	case b&tcell.Button1 != 0:
+		if y == 0 && !u.o.NoBar {
+			for _, t := range u.tabs {
+				if x >= t.x0 && x < t.x1 {
+					u.c.Goto(t.key)
+					u.scroll = 0
+				}
+			}
+		} else if y == u.peekY && u.peekKey != "" {
+			u.c.Goto(u.peekKey)
+			u.scroll = 0
 		}
 	}
 }
@@ -305,7 +405,16 @@ func (u *tui) submit() {
 			u.clearScreen()
 			return
 		case "hide":
-			u.hidden = true
+			u.hide()
+			return
+		case "mouse":
+			u.noMouse = !u.noMouse
+			u.setMouse()
+			if u.noMouse {
+				u.c.Sys("mouse off: select text with it · /mouse to scroll with the wheel again")
+			} else {
+				u.c.Sys("mouse on: the wheel scrolls the chat · /mouse to select text instead")
+			}
 			return
 		case "dim", "ghost":
 			u.o.Ghost = !u.o.Ghost
@@ -351,11 +460,11 @@ func (u *tui) submit() {
 				u.c.Sys("skins: " + strings.Join(skins, " "))
 			}
 			return
-		case "focus":
-			if u.o.Focus = !u.o.Focus; u.o.Focus {
-				u.c.Sys("showing only the chat you're in (Tab to switch) · /focus again for all")
+		case "all", "focus", "mix":
+			if u.o.All = !u.o.All; u.o.All {
+				u.c.Sys("showing every chat together · /all again for one at a time")
 			} else {
-				u.c.Sys("showing every chat")
+				u.c.Sys("one chat at a time · Ctrl+N next chat · /all to mix them")
 			}
 			return
 		}
@@ -377,7 +486,7 @@ func (u *tui) style(p part) tcell.Style {
 		switch p.kind {
 		case pText, pName:
 			return stText
-		case pMe, pDM, pNotice, pFile:
+		case pMe, pDM, pNotice, pFile, pCmd, pHead:
 			return stText.Bold(true)
 		}
 		return stMeta
@@ -386,9 +495,16 @@ func (u *tui) style(p part) tcell.Style {
 	case pText:
 		return stText
 	case pMe:
-		return stText.Bold(true)
+		return stText.Foreground(tcell.PaletteColor(meColor)).Bold(true)
 	case pName:
+		if u.o.Skin == "chat" { // a chat app look: each name its own soft colour
+			return stText.Foreground(brightColor(p.who)).Bold(true)
+		}
 		return stText.Foreground(nameColor(p.who))
+	case pCmd:
+		return stText.Foreground(tcell.PaletteColor(109))
+	case pHead:
+		return stText.Foreground(tcell.PaletteColor(180)).Bold(true)
 	case pRoom:
 		return stText.Foreground(tcell.PaletteColor(110))
 	case pDM:
@@ -432,15 +548,51 @@ func (u *tui) draw() {
 		s.Show()
 		return
 	}
-	v := u.c.View(1500)
+	if u.view != nil {
+		u.drawViewer(w, h)
+		s.Show()
+		return
+	}
+	want := h + u.scroll + 100
+	v := u.c.View(want, !u.o.All)
 	top, bottom := 0, h-1 // bottom is the input row
+	u.tabs = u.tabs[:0]
 	if !u.o.NoBar && h >= 5 {
 		u.drawBar(&v, w, 0)
 		top = 1
 	}
+	if c := u.comp; c != nil && len(c.list) > 1 && h >= 6 {
+		bottom--
+		x := 0
+		for i, it := range c.list {
+			st := u.style(part{kind: pMeta})
+			if i == c.i {
+				st = u.style(part{kind: pCmd}).Reverse(true)
+			}
+			x = u.put(x, bottom, w, " "+it+" ", st)
+		}
+	}
 	if len(v.Busy) > 0 && h >= 6 {
 		bottom--
 		u.put(0, bottom, w, strings.Join(v.Busy, "    "), u.style(part{kind: pFile}))
+	}
+	u.peekKey = ""
+	if p := v.Peek; p != nil && h >= 7 {
+		bottom--
+		u.peekKey, u.peekY = p.Key, bottom
+		where, who := "new in "+p.Key, " · "+v.Nicks[p.From]+": "
+		if strings.HasPrefix(p.Key, "@") {
+			where, who = "DM from "+v.Nicks[p.From], ": "
+		}
+		text := p.Text
+		if p.File != nil {
+			text = "[file] " + p.File.Name
+		}
+		x := u.put(0, bottom, w, "↳ "+where, u.style(part{kind: pDM}))
+		x = u.put(x, bottom, w, who, u.style(part{kind: pMeta}))
+		hint := "  ^N"
+		x = u.put(x, bottom, w-len(hint), text, u.style(part{kind: pFaint}))
+		u.put(x, bottom, w, hint, u.style(part{kind: pMeta}))
 	}
 	mw := w
 	if u.o.People && w >= 60 {
@@ -449,7 +601,10 @@ func (u *tui) draw() {
 		u.drawPeople(&v, mw, top, w, bottom)
 	}
 	area := bottom - top
-	rows := u.layout(&v, mw, area+u.scroll)
+	rows, atTop := u.layout(&v, mw, area+u.scroll)
+	if atTop && v.Only && v.Older == olderMore && len(v.Lines) < want {
+		u.c.Older(v.Target) // scrolled to the top: fetch earlier messages
+	}
 	if len(rows) < area+u.scroll {
 		u.scroll = imax(0, len(rows)-area)
 	}
@@ -480,7 +635,7 @@ func (u *tui) drawBar(v *View, w, y int) {
 			here++
 		}
 	}
-	right := fmt.Sprintf(" %d here · Tab: switch ", here)
+	right := fmt.Sprintf(" %d here · ^N next chat ", here)
 	maxX := w - len(right)
 	x := 0
 	for _, ch := range v.Chats {
@@ -491,10 +646,12 @@ func (u *tui) drawBar(v *View, w, y int) {
 				st = stMeta.Dim(true).Reverse(true)
 			}
 		}
+		x0 := x
 		x = u.put(x, y, maxX, " "+ch.Label+" ", st)
 		if ch.Unread > 0 {
 			x = u.put(x, y, maxX, strconv.Itoa(ch.Unread), u.style(part{kind: pDM}))
 		}
+		u.tabs = append(u.tabs, tabHit{x0, x, ch.Key})
 		x = u.put(x, y, maxX, " ", stMeta)
 	}
 	if maxX > x {
@@ -535,18 +692,20 @@ func (u *tui) drawPeople(v *View, x0, top, w, bottom int) {
 	}
 }
 
-// layout wraps the newest lines until it has at least `need` rows.
-func (u *tui) layout(v *View, width, need int) []row {
+// layout wraps the newest lines until it has at least `need` rows. atTop
+// reports that every line of the chat fit, so earlier ones could be
+// fetched; the top then says where the chat starts.
+func (u *tui) layout(v *View, width, need int) (rows []row, atTop bool) {
 	now := time.Now().UnixMilli()
 	fade := atomic.LoadInt64(&u.fadeSec) * 1000
 	var blocks [][]row
 	n := 0
-	for i := len(v.Lines) - 1; i >= 0 && n < need; i-- {
+	hid := false
+	i := len(v.Lines) - 1
+	for ; i >= 0 && n < need; i-- {
 		l := &v.Lines[i]
-		if u.o.Focus && !l.Sys && l.Key != v.Target {
-			continue
-		}
 		if u.scroll == 0 && (l.Seq <= u.clearSeq || (fade > 0 && now-l.TS > fade)) {
+			hid = true
 			continue
 		}
 		var prev *Line
@@ -560,11 +719,27 @@ func (u *tui) layout(v *View, width, need int) []row {
 		blocks = append(blocks, b)
 		n += len(b)
 	}
-	rows := make([]row, 0, n)
+	atTop = i < 0 && !hid
+	if atTop && v.Only && v.Target != "" {
+		text := "· · ·"
+		switch v.Older {
+		case olderBusy:
+			text = "loading earlier messages"
+		case olderDone:
+			if strings.HasPrefix(v.Target, "@") {
+				text = "the start of your chat with " + strings.TrimPrefix(v.Label, "@")
+			} else {
+				text = "the start of " + v.Target
+			}
+		}
+		blocks = append(blocks, u.wrap(para{parts: []part{{text, pMeta, ""}}, align: alignCenter}, width), []row{{}})
+		n += 2
+	}
+	rows = make([]row, 0, n)
 	for i := len(blocks) - 1; i >= 0; i-- {
 		rows = append(rows, blocks[i]...)
 	}
-	return rows
+	return rows, atTop
 }
 
 // wrap breaks a paragraph into rows at word boundaries. Left-aligned

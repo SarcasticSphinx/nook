@@ -22,8 +22,9 @@ import (
 // stops, the history is gone.
 
 const (
-	roomHist    = 200
-	dmHist      = 100
+	roomHist    = 1000 // kept per room; scrolling up fetches older ones
+	dmHist      = 500
+	olderPage   = 60 // messages per "older" request
 	maxSessions = 300
 	maxPerIP    = 24
 	maxRooms    = 200
@@ -707,6 +708,26 @@ func (h *Hub) do(req Req) Resp {
 		}
 		h.emitLocked(LocalEvent{Kind: "say", ID: u.id, Nick: u.nick, Msg: m})
 		return Resp{OK: true}
+
+	case "older": // scrolling up: the messages before ID req.Arg in one chat
+		before, _ := strconv.ParseInt(req.Arg, 10, 64)
+		if before <= 0 {
+			before = 1 << 62
+		}
+		var list []Msg
+		switch {
+		case strings.HasPrefix(req.To, "#"):
+			rm := h.rooms[cleanRoom(req.To)]
+			if rm == nil || !rm.members[u.id] {
+				return Resp{Err: "you're not in " + req.To}
+			}
+			list = rm.hist
+		case strings.HasPrefix(req.To, "@"):
+			list = h.dms[pairKey(u.id, req.To[1:])]
+		}
+		i := sort.Search(len(list), func(i int) bool { return list[i].ID >= before })
+		out := append([]Msg(nil), list[imax(0, i-olderPage):i]...)
+		return Resp{OK: true, Hist: out, More: i > olderPage}
 
 	case "join":
 		name := cleanRoom(req.Arg)
