@@ -126,7 +126,7 @@ func TestSkinsDrawEverything(t *testing.T) {
 
 // The full-screen view shows one chat at a time, like a messenger: a DM
 // never mixes with #general; news from elsewhere waits on one row.
-// Tab completes, Ctrl+N switches, the wheel scrolls and fetches older
+// Tab switches chats and completes /commands, the wheel scrolls and fetches older
 // messages, and /see opens a file without saving it.
 func TestChatsStaySeparate(t *testing.T) {
 	h := testHub(t, "")
@@ -167,7 +167,7 @@ func TestChatsStaySeparate(t *testing.T) {
 	if strings.Contains(screenText(s), "a secret") && !strings.Contains(screenText(s), "DM from friend: a secret") {
 		t.Fatal("the DM was mixed into #general")
 	}
-	s.InjectKey(tcell.KeyCtrlN, 0, tcell.ModNone)
+	s.InjectKey(tcell.KeyTab, 0, tcell.ModNone)
 	waitFor(t, "in the DM", shows("DM friend> "))
 	waitFor(t, "DM shown", shows("a secret"))
 	if strings.Contains(screenText(s), "in general") {
@@ -233,6 +233,30 @@ func TestChatsStaySeparate(t *testing.T) {
 	s.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 	waitFor(t, "picture drawn", shows("▀▀▀▀▀▀▀▀▀▀"))
 	s.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+
+	// a PDF goes to a real preview window, and nothing is saved
+	var opened string
+	old2 := systemPreview
+	systemPreview = func(name string, data []byte) error {
+		if strings.HasPrefix(string(data), "%PDF") {
+			opened = name
+		}
+		return nil
+	}
+	t.Cleanup(func() { systemPreview = old2 })
+	pdf := filepath.Join(t.TempDir(), "slides.pdf")
+	os.WriteFile(pdf, []byte("%PDF-1.4\n%fake\n"), 0o644)
+	friend.Input("/send " + pdf)
+	waitFor(t, "pdf offered", shows("/see 3"))
+	typeText("/see 3")
+	s.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
+	waitFor(t, "pdf in a preview window", shows("opened slides.pdf in a preview window"))
+	if opened != "slides.pdf" {
+		t.Fatalf("preview window got %q", opened)
+	}
+	if ents, _ := os.ReadDir(dl); len(ents) != 0 {
+		t.Fatalf("/see saved something: %v", ents)
+	}
 
 	s.InjectKey(tcell.KeyCtrlC, 0, tcell.ModNone)
 	<-done

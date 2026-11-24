@@ -22,7 +22,7 @@ import (
 	"golang.org/x/term"
 )
 
-var version = "0.3.0"
+var version = "0.4.0"
 
 //go:embed web/index.html
 var indexHTML string
@@ -57,8 +57,8 @@ options
 while chatting
   Esc       hide: swaps in a normal shell prompt; Esc again to come back
   Ctrl+C    quit at once        Ctrl+L   clear the screen
-  Ctrl+N/P  next / previous chat  Ctrl+G   back to #general
-  Tab       finish a command or a name    mouse wheel: scroll up the chat
+  Tab       next chat (Shift+Tab: previous; while typing a /command: finish it)
+  Ctrl+G    back to #general    mouse wheel: scroll up the chat
   /join #room  /leave  /dm NAME [text]  /r text  /nick NAME  /g
   /send FILE  /see N  /get N  /files   (or drag a file into the window)
   /who  /people  /rooms  /info  /dim  /fade 30  /skin next  /help

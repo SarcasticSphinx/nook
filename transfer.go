@@ -439,6 +439,12 @@ func (c *Client) see(arg string) {
 		return
 	}
 	show := func(data []byte) {
+		if makePreview(fi.Name, data).kind != pvText {
+			if err := systemPreview(fi.Name, data); err == nil {
+				c.Sys("opened " + fi.Name + " in a preview window · nothing is saved")
+				return
+			}
+		}
 		c.mu.Lock()
 		v := c.viewer
 		c.mu.Unlock()

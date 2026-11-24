@@ -209,15 +209,13 @@ func (u *tui) key(ev *tcell.EventKey) {
 	switch k {
 	case tcell.KeyEnter:
 		u.submit()
-	case tcell.KeyTab:
-		if ev.Modifiers()&tcell.ModCtrl != 0 { // Ctrl+Tab, where the terminal passes it on
-			u.cycle(1)
-		} else {
+	case tcell.KeyTab: // completes a /command being typed; otherwise the next chat
+		if strings.HasPrefix(string(u.in), "/") {
 			u.complete()
+		} else {
+			u.cycle(1)
 		}
-	case tcell.KeyCtrlN:
-		u.cycle(1)
-	case tcell.KeyCtrlP, tcell.KeyBacktab:
+	case tcell.KeyBacktab:
 		u.cycle(-1)
 	case tcell.KeyCtrlG:
 		u.c.Goto("#" + general)
@@ -464,7 +462,7 @@ func (u *tui) submit() {
 			if u.o.All = !u.o.All; u.o.All {
 				u.c.Sys("showing every chat together · /all again for one at a time")
 			} else {
-				u.c.Sys("one chat at a time · Ctrl+N next chat · /all to mix them")
+				u.c.Sys("one chat at a time · Tab next chat · /all to mix them")
 			}
 			return
 		}
@@ -590,7 +588,7 @@ func (u *tui) draw() {
 		}
 		x := u.put(0, bottom, w, "↳ "+where, u.style(part{kind: pDM}))
 		x = u.put(x, bottom, w, who, u.style(part{kind: pMeta}))
-		hint := "  ^N"
+		hint := "  Tab"
 		x = u.put(x, bottom, w-len(hint), text, u.style(part{kind: pFaint}))
 		u.put(x, bottom, w, hint, u.style(part{kind: pMeta}))
 	}
@@ -635,7 +633,7 @@ func (u *tui) drawBar(v *View, w, y int) {
 			here++
 		}
 	}
-	right := fmt.Sprintf(" %d here · ^N next chat ", here)
+	right := fmt.Sprintf(" %d here · Tab next chat ", here)
 	maxX := w - len(right)
 	x := 0
 	for _, ch := range v.Chats {

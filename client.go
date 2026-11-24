@@ -171,6 +171,7 @@ func (c *Client) Close() {
 	c.quit = true
 	h, cancel := c.hub, c.cancel
 	c.mu.Unlock()
+	cleanPreviews() // files /see handed to a viewer
 	if cancel != nil {
 		cancel()
 	}
@@ -1363,10 +1364,9 @@ func (c *Client) help() {
 	lines = append(lines, sec("KEYS",
 		[2]string{"Esc", "hide the chat behind a normal prompt (Esc again: back)"},
 		[2]string{"Ctrl+C", "quit at once"},
-		[2]string{"Ctrl+N", "next chat (Ctrl+Tab too, if your terminal allows)"},
-		[2]string{"Ctrl+P", "previous chat"},
+		[2]string{"Tab", "next chat (while typing a /command: finish it)"},
+		[2]string{"Shift+Tab", "previous chat"},
 		[2]string{"Ctrl+G", "back to #general"},
-		[2]string{"Tab", "finish a /command, a name or a room"},
 		[2]string{"wheel, PgUp", "scroll up through the chat"},
 		[2]string{"↑ ↓", "what you typed before"},
 		[2]string{"Ctrl+L", "clear the screen"},

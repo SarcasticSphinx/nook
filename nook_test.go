@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -18,6 +19,7 @@ func TestMain(m *testing.M) {
 	discoveryTargets = func(port int) []*net.UDPAddr {
 		return []*net.UDPAddr{{IP: net.IPv4(127, 0, 0, 1), Port: port}}
 	}
+	systemPreview = func(string, []byte) error { return errors.New("no preview windows in tests") }
 	os.Exit(m.Run())
 }
 

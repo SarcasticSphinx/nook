@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// Tab completes what you're typing: a /command, then what that command
-// takes (a name, a room, a skin, a file number), or a name in a message.
+// Tab completes a /command being typed, then what that command takes (a
+// name, a room, a skin). Anywhere else Tab switches chats.
 // One match fills it in; several show above the input and Tab goes through
 // them.
 

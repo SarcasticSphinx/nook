@@ -7,6 +7,7 @@ import (
 	_ "image/gif" // pictures /see can show
 	_ "image/jpeg"
 	_ "image/png"
+	"net/http"
 	"strings"
 	"unicode/utf8"
 
@@ -35,7 +36,7 @@ func makePreview(name string, data []byte) preview {
 		b := img.Bounds()
 		return preview{kind: pvImage, img: img, note: fmt.Sprintf("%s picture · %d×%d", strings.ToUpper(format), b.Dx(), b.Dy())}
 	}
-	if looksText(data) {
+	if looksText(data) && http.DetectContentType(data) != "application/pdf" {
 		s := strings.ReplaceAll(string(data), "\r\n", "\n")
 		s = strings.TrimSuffix(s, "\n")
 		lines := strings.Split(s, "\n")

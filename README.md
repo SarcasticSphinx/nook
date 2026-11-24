@@ -9,11 +9,11 @@ terminal (VS Code's included) and looks like nothing much: press **Esc** and
 it turns into an ordinary shell prompt.
 
 ```
- #general   @rafi 1                               3 here · ^N next chat
+ #general   @rafi 1                              3 here · Tab next chat
 09:41  rafi     anyone done with question 3?
 09:41  tanvir   not yet, stuck on part b
 09:42  rafi     [file] diagram.png · 33 KB  /see 1  /get 1
-↳ DM from rafi: psst, the trick is the second loop               ^N
+↳ DM from rafi: psst, the trick is the second loop              Tab
 #general> _
 ```
 
@@ -99,8 +99,7 @@ needs two laptops: one computer can't link to itself.
 |---|---|
 | **Esc** | hide: the screen becomes a normal shell prompt (`you@laptop folder %` or `PS C:\...>`). You can type `ls`, `cd`, `pwd`, `clear` in it. Esc again brings the chat back. |
 | **Ctrl+C** | quit instantly. The terminal looks exactly as before. Press Up, Enter to come back. |
-| **Ctrl+N** / Ctrl+P | next / previous chat (the bar at the top shows your rooms and DMs, with unread counts; click one to open it). Ctrl+Tab works too where the terminal passes it on; most terminals keep it for their own tabs. |
-| **Tab** | finish what you're typing: a `/command`, a name, a room, a skin. Several matches show above the input; Tab again goes through them. |
+| **Tab** / Shift+Tab | next / previous chat (the bar at the top shows your rooms and DMs, with unread counts; click one to open it). While you're typing a `/command`, Tab finishes it instead: the command, a name, a room, a skin. |
 | **mouse wheel** | scroll up through the chat. At the top, older messages are fetched from the host, back to the very first one. `/mouse` turns this off so you can select text. |
 | **Ctrl+G** / `/g` | back to #general from anywhere |
 | `/dm name [text]` | private message (a name prefix is enough: `/dm raf hi`) |
@@ -110,7 +109,7 @@ needs two laptops: one computer can't link to itself.
 | `/people` | keep a list of everyone on the right side of the screen |
 | `/nick name` | change your name: everyone sees "rafi is now known as rafa", and your old messages show the new name |
 | `/send path` | share a file with the chat you're in. Or drag the file into the terminal window and press Enter. |
-| `/see 3` | look at file 3 without saving it: text inside the window, pictures drawn in colour, anything else described. `q` closes it, `g` saves it. |
+| `/see 3` | look at file 3 without saving it. Text opens inside the window (`q` closes it, `g` saves it). Pictures and PDFs open in a real preview window: Quick Look on a Mac, the picture or PDF viewer on Windows and Linux. The copy it opens is a private temporary file, deleted when the window closes (Mac) or when nook quits. Where no preview window can open, pictures are drawn in the terminal instead. |
 | `/get`, `/get 3`, `/files` | download the newest file (or number 3) to your Downloads folder; list the files shared so far |
 | `/skin next` | change the look (see below) |
 | `/dim`, `/fade 20` | faint text; messages disappear from the screen after 20 seconds (`/fade off`) |
@@ -125,7 +124,7 @@ needs two laptops: one computer can't link to itself.
 **One chat at a time.** Like a messenger, the screen shows only the chat
 you're in: a DM never mixes with #general. When something arrives
 elsewhere, the chat bar counts it and one row above the input shows the
-newest one (`↳ DM from rafi: ...`); Ctrl+N or a click takes you there.
+newest one (`↳ DM from rafi: ...`); Tab or a click takes you there.
 `/all` mixes every chat on one screen instead, with labels saying where
 each line is from (`DM  rafi`, `DM to rafi`, `#lab`).
 
@@ -153,17 +152,21 @@ discovery), `nook scan` (search harder when automatic finding is blocked),
 Open the host's address in any browser. It has two looks, switched with the
 button at the top right or `/ui chat` and `/ui term`:
 
-- **Chat**: a quiet, flat messenger. A chat list with the last message,
-  time and unread count; who's here along the top; bubbles grouped by
-  person, each name in its own faded colour; "rafi is typing"; picture
-  previews; files by dragging them onto the page, pasting, or the
-  paperclip, with an eye button to look at one without saving it. Typing
-  `/` lists the commands. Scrolling up fetches older messages. On a phone
-  the chat list is its own screen and a chat slides in over it.
+- **Chat**: a soft, raised messenger look that follows your system's light
+  or dark theme. All / Unread / Mentions tabs over the chat list (Mentions
+  counts messages that name you); the last message, time and unread count
+  for each chat; who's here along the top; bubbles grouped by person, each
+  name in its own colour; "rafi is typing"; picture previews; files by
+  dragging them onto the page, pasting, or the paperclip, with an eye
+  button to look at one (pictures, PDFs and text) without saving it.
+  Typing `/` lists the commands. Scrolling up fetches older messages. On a
+  phone the chat list is its own screen and a chat slides in over it.
 - **Terminal**: the same plain text look as the app.
 
-In both, Alt+Up/Down switches chats, Tab finishes a command or a name, Esc swaps in a page of study notes (the tab is called "notes" and
-has no icon), the commands are the same as in the app, `/autohide` hides
+In both, Tab switches chats (or finishes a `/command`), and Esc swaps the
+chat for a little runner game: a pixel cat hopping over boxes (Space to
+jump, Down to duck; on a phone, tap to jump and hold to go back). The tab
+is called "Runner" and has no icon. The commands are the same as in the app, `/autohide` hides
 the chat whenever you click away, and Ctrl+W closes the tab while
 Ctrl+Shift+T brings it straight back, still signed in.
 
@@ -417,6 +420,7 @@ go run . wifi --id test                       # try Wi-Fi mode
 | `files.go` | the Wi-Fi host's file storage: uploads, downloads, clean-up |
 | `transfer.go` | `/send`, `/get`, `/see` and `/files`, with progress and speed |
 | `viewer.go` | `/see`: text and pictures inside the terminal |
+| `preview.go` | `/see`: pictures and PDFs in a real preview window |
 | `complete.go` | Tab completion |
 | `discover.go` | finding Wi-Fi hosts (UDP broadcast) and `nook scan` |
 | `client.go` | connection, reconnection and failover, commands, `/who` and `/help` |
