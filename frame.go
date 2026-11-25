@@ -128,7 +128,7 @@ func (a *assembler) dropLink(link int64) {
 // pkt is one mesh message. Keys are short because every byte costs time
 // over Bluetooth.
 type pkt struct {
-	T     string   `json:"t"`           // ann msg dm bye sync
+	T     string   `json:"t"`           // ann msg dm bye sync g (a game packet)
 	MID   string   `json:"m,omitempty"` // unique id, so each laptop handles it once
 	TTL   int      `json:"l,omitempty"` // hops left
 	Age   int64    `json:"a,omitempty"` // ms since it was sent (catch-up copies)

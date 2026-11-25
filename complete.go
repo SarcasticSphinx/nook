@@ -14,7 +14,7 @@ import (
 var commandNames = []string{
 	"all", "bar", "clear", "colors", "dim", "dm", "fade", "files", "g", "get",
 	"help", "hide", "info", "join", "key", "leave", "mouse", "nick", "people",
-	"mode", "quit", "r", "rooms", "see", "send", "skin", "who",
+	"mode", "play", "quit", "r", "rooms", "see", "send", "skin", "who",
 }
 
 type compList struct {

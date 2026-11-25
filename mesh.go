@@ -300,7 +300,7 @@ func (m *Mesh) forward(from int64, p *pkt) {
 	q := *p
 	q.TTL--
 	b := encodePkt(&q)
-	chat := p.T == "msg" || p.T == "dm"
+	chat := p.T == "msg" || p.T == "dm" || p.T == "g"
 	for id, l := range m.links {
 		if id != from || l.shared {
 			m.enqueue(l, b, chat)
@@ -458,6 +458,19 @@ func (m *Mesh) handle(from int64, p *pkt) {
 	case "fq":
 		m.onRequest(from, p)
 		return
+	case "g": // a game packet: Room is the game's code
+		if !validCode(p.Room) || len(p.Text) > maxGamePkt {
+			return
+		}
+		pr := m.peerFor(p.From, p.Nick)
+		if at.After(pr.lastSeen) {
+			pr.lastSeen, pr.on = at, true
+		}
+		m.hub.RemoteUser(pr.id, pr.nick, pr.on, nil)
+		m.hub.RemoteGame(p.From, p.Room, p.To, p.Text)
+		if p.To == m.me {
+			return // it was for us: no need to pass it on
+		}
 	case "bye":
 		if pr := m.peers[p.From]; pr != nil && pr.on {
 			pr.on, pr.lastSeen = false, time.Time{}
@@ -538,6 +551,13 @@ func (m *Mesh) onLocal(e LocalEvent) {
 				m.enqueue(l, encodePkt(&pkt{T: "sync", From: m.me}), false)
 			}
 		}
+	case "game":
+		if m.me == "" {
+			return
+		}
+		p := &pkt{T: "g", MID: randHex(8), TTL: m.cfg.TTL, From: m.me, Nick: m.nick, Room: e.Msg.Room, To: e.Msg.To, Text: e.Msg.Text}
+		m.dup(p.MID, time.Now())
+		m.broadcast(p, true)
 	case "say":
 		mg := e.Msg
 		now := time.Now()

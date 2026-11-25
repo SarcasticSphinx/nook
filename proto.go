@@ -25,7 +25,7 @@ const (
 
 // Ev is one event pushed from the hub to a client.
 type Ev struct {
-	T     string     `json:"t"` // hello msg hist user room moved bye err sys ping
+	T     string     `json:"t"` // hello msg hist user room moved bye err sys ping game
 	SID   string     `json:"sid,omitempty"`
 	Hub   string     `json:"hub,omitempty"`
 	Now   int64      `json:"now,omitempty"`
@@ -41,6 +41,7 @@ type Ev struct {
 	URL   string     `json:"url,omitempty"`
 	Next  string     `json:"next,omitempty"`
 	Text  string     `json:"text,omitempty"`
+	Code  string     `json:"code,omitempty"` // "game": the 6-digit game room
 }
 
 type UserInfo struct {
@@ -79,7 +80,7 @@ type FileInfo struct {
 
 type Req struct {
 	SID  string `json:"sid"`
-	Op   string `json:"op"` // say join leave nick typing older
+	Op   string `json:"op"` // say join leave nick typing older gsub gunsub game
 	To   string `json:"to,omitempty"`
 	Text string `json:"text,omitempty"`
 	Arg  string `json:"arg,omitempty"`

@@ -90,6 +90,7 @@ type Hub struct {
 	local    chan LocalEvent
 	shared   map[string]*storedFile
 	fileDir  string
+	games    map[string]map[string]bool // game room code -> ids of people here in it
 }
 
 type user struct {
@@ -102,6 +103,9 @@ type user struct {
 	offTimer      *time.Timer
 	tokens        float64
 	filled        time.Time
+	games         map[string]bool // game rooms (6-digit codes) this person is in
+	gtokens       float64         // game packets have their own, faster bucket
+	gfilled       time.Time
 }
 
 type room struct {
@@ -165,6 +169,7 @@ func StartHub(o HubOpts) (*Hub, error) {
 		dms:      map[string][]Msg{},
 		sessions: map[string]*session{},
 		perIP:    map[string]int{},
+		games:    map[string]map[string]bool{},
 		done:     make(chan struct{}),
 		disc:     discoverFn,
 	}
@@ -617,6 +622,7 @@ func (h *Hub) leave(s *session) {
 		defer h.mu.Unlock()
 		if len(u.sess) == 0 && u.on && !h.closed {
 			u.on = false
+			h.dropGamesLocked(u)
 			h.broadcastLocked(Ev{T: "user", User: u.info()})
 		}
 	})
@@ -785,6 +791,9 @@ func (h *Hub) do(req Req) Resp {
 			h.toUserLocked(peer, b)
 		}
 		return Resp{OK: true}
+
+	case "gsub", "gunsub", "game":
+		return h.gameLocked(u, req)
 
 	case "nick":
 		n := cleanNick(req.Arg)

@@ -22,7 +22,7 @@ import (
 	"golang.org/x/term"
 )
 
-var version = "0.4.1"
+var version = "0.5.0"
 
 //go:embed web/index.html
 var indexHTML string
@@ -65,6 +65,7 @@ while chatting
   /join #room  /leave  /dm NAME [text]  /r text  /nick NAME  /g
   /send FILE  /see N  /get N  /files   (or drag a file into the window)
   /who  /people  /rooms  /info  /dim  /fade 30  /skin next  /help
+  /play     games: alone, or with others in a room with a 6-digit code
 
 install it once, then just type nook:
   from the nook folder   Mac/Linux: ./install.sh    Windows: double-click install.cmd

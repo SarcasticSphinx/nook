@@ -128,6 +128,57 @@ needs two laptops: one computer can't link to itself.
 
 `/help` shows all of this in the app.
 
+**Games.** `/play` opens a games menu right in the terminal:
+
+| Game | Alone | With others |
+|---|---|---|
+| **Snake**: eat, grow, don't crash | ✓ | 2-4, a two-minute free-for-all: bite other snakes to steal their tails, most points wins (Wi-Fi mode only: Bluetooth is too slow for it) |
+| **Maze Muncher**: eat every dot, dodge four ghosts, big dots turn the tables | ✓ | |
+| **Last Card**: match the colour or symbol, empty your hand first (skip, reverse, +2, wild, wild +4) | ✓ against 3 bots | 2-6, bots can fill seats |
+| **Tic-tac-toe** | ✓ against the computer | 2 |
+| **Four in a Row**: drop pieces, line up four | ✓ against the computer | 2 |
+
+**Snake with others**: run your head into another snake's body and you bite
+off everything from there to its tail, and grow by that much. Bite right
+behind its head and you eat it whole. Head to head, the longer snake eats
+the shorter (equal: both die). Walls and your own body still kill you. A
+snake that dies spills into food and comes back 3 seconds later, small and
+blinking: for 2 seconds it can't bite or be bitten. Points: a dot is 1, each
+bitten piece 1, eating a whole snake 5 plus half its length. Most points
+after two minutes wins.
+
+Games with others happen in a room with a 6-digit code. In the menu, **O**
+opens a room for everyone: it's announced in #general (`opened a Last Card
+room for everyone · type /play 482913 to join`) and shows up under *open
+rooms* in everyone's games menu, so anyone can jump in with Enter. **C** makes
+a private room: share the code, and others type `/play 482913` (in the room,
+**I** posts the code in your chat). `/play snake` starts a game alone.
+
+The person who opens a room runs the game on their laptop; the others send
+their key presses and get the picture back, through the Wi-Fi host or hop by
+hop over Bluetooth. What happens when things go wrong:
+
+- **Arriving late or to a full room**: you watch the round being played and
+  get a seat in the next one (the host presses Enter for another round).
+- **Someone drops off** (laptop asleep, Wi-Fi gone, quit): after a few
+  seconds they're marked away. In Last Card a bot plays their cards, a snake
+  spills into food until they return, and in the two-player board games the other wins if they're gone
+  for 30 seconds. Coming back (same person, even after restarting nook)
+  gives them their seat back.
+- **Nobody moves**: in a game with others a turn lasts at most 30 seconds
+  (Last Card) or 60 (board games); then the computer moves for them.
+- **The room's host loses its connection**: the others see "waiting for
+  …'s connection" and carry on when it's back; after 25 seconds the room
+  closes and everyone is told. When the host leaves on purpose (Q twice),
+  everyone is told at once.
+- **A wrong code** says so after a few seconds instead of waiting forever.
+- Each picture is numbered, so a late or doubled packet never shows an old
+  state, and the host repeats it now and then so a lost one heals by itself.
+
+Q leaves a game (twice with others, so it can't happen by accident), Esc
+still hides everything (a game alone pauses), and the newest chat message
+from elsewhere shows on the bottom row while you play.
+
 **One chat at a time.** Like a messenger, the screen shows only the chat
 you're in: a DM never mixes with #general. When something arrives
 elsewhere, the chat bar counts it and one row above the input shows the

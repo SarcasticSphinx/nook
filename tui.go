@@ -75,6 +75,7 @@ type tui struct {
 	poked    int32
 
 	view    *viewer   // a file opened with /see
+	gm      *gamesUI  // the games screen (/play)
 	noMouse bool      // /mouse: let the terminal select text instead
 	comp    *compList // Tab completion in progress
 	tabs    []tabHit  // where each chat is on the bar, for clicks
@@ -122,6 +123,13 @@ func runTUI(c *Client, o uiOpts, s tcell.Screen) error {
 	c.SetViewer(func(fi FileInfo, no int, data []byte) {
 		s.PostEvent(tcell.NewEventInterrupt(func() { u.openViewer(fi, no, data) }))
 	})
+	c.SetOnGame(func(code, from, nick, text string) {
+		s.PostEvent(tcell.NewEventInterrupt(func() {
+			if u.gm != nil {
+				u.gm.recv(code, from, nick, text)
+			}
+		}))
+	})
 	c.Start()
 
 	done := make(chan struct{})
@@ -162,6 +170,10 @@ func runTUI(c *Client, o uiOpts, s tcell.Screen) error {
 		}
 	}
 	close(done)
+	if u.gm != nil {
+		u.gm.close() // tells the others in a game room we've gone
+	}
+	c.SetOnGame(nil)
 	c.SetOnChange(nil)
 	c.SetViewer(nil)
 	s.Fini()
@@ -201,6 +213,10 @@ func (u *tui) key(ev *tcell.EventKey) {
 	}
 	if k == tcell.KeyEscape { // the boss key works everywhere, even in a file
 		u.hide()
+		return
+	}
+	if u.gm != nil {
+		u.gm.key(ev)
 		return
 	}
 	if u.view != nil {
@@ -336,6 +352,9 @@ func (u *tui) mouse(ev *tcell.EventMouse) {
 	if u.hidden {
 		return
 	}
+	if u.gm != nil {
+		return
+	}
 	b := ev.Buttons()
 	x, y := ev.Position()
 	if u.view != nil {
@@ -452,6 +471,9 @@ func (u *tui) submit() {
 			return
 		case "hide":
 			u.hide()
+			return
+		case "play", "games", "game":
+			u.openGames(arg)
 			return
 		case "mouse":
 			u.noMouse = !u.noMouse
@@ -613,6 +635,11 @@ func (u *tui) draw() {
 	}
 	if u.hidden {
 		u.decoy.draw(s, w, h)
+		s.Show()
+		return
+	}
+	if u.gm != nil {
+		u.gm.draw(w, h)
 		s.Show()
 		return
 	}

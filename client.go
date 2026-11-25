@@ -118,7 +118,10 @@ type Client struct {
 	verbose         bool
 	onChange        func()
 	sayq            chan sayJob // messages go out one at a time, in order
-	slowNote        time.Time   // when "slow down" was last shown
+	gameq           chan Req    // game packets, in order, never blocking the UI
+	gameSubs        map[string]bool
+	onGame          func(code, from, nick, text string)
+	slowNote        time.Time // when "slow down" was last shown
 
 	hc, sc *http.Client
 	wake   chan struct{}
@@ -149,8 +152,11 @@ func NewClient(o ClientOpts) *Client {
 		wake:     make(chan struct{}, 1),
 		disc:     discoverFn,
 		sayq:     make(chan sayJob, 64),
+		gameq:    make(chan Req, 256),
+		gameSubs: map[string]bool{},
 	}
 	go c.sender()
+	go c.gameSender()
 	return c
 }
 
@@ -191,6 +197,7 @@ func (c *Client) Close() {
 	}
 	c.quit = true
 	close(c.sayq)
+	close(c.gameq)
 	h, cancel := c.hub, c.cancel
 	c.mu.Unlock()
 	cleanPreviews() // files /see handed to a viewer
@@ -478,6 +485,10 @@ func (c *Client) stream(base string) (res endResult) {
 }
 
 func (c *Client) handle(ev *Ev) (res endResult) {
+	if ev.T == "game" {
+		c.gameIn(ev)
+		return
+	}
 	c.mu.Lock()
 	switch ev.T {
 	case "hello":
@@ -512,6 +523,7 @@ func (c *Client) handle(ev *Ev) (res endResult) {
 		}
 		c.fixTargetLocked()
 		c.state = stOnline
+		c.resubLocked()
 		if newHub {
 			if c.o.Status != nil {
 				c.globalLocked(c.o.Status() + " · /help")
@@ -1443,6 +1455,11 @@ func (c *Client) help() {
 		[2]string{"/see n", "look at file n without saving it"},
 		[2]string{"/get n", "save file n to Downloads"},
 		[2]string{"/files", "every file shared so far"},
+	)...)
+	lines = append(lines, sec("GAMES",
+		[2]string{"/play", "games: Snake, Maze Muncher, Last Card, Tic-tac-toe, Four in a Row"},
+		[2]string{"/play 123456", "join a game room by its code"},
+		[2]string{"/play snake", "start a game alone"},
 	)...)
 	lines = append(lines, sec("LOOKS",
 		[2]string{"/skin name", strings.Join(skins, " ")},
